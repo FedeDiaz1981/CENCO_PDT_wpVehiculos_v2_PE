@@ -1,0 +1,18 @@
+{
+  "@microsoft/generator-sharepoint": {
+    "plusBeta": false,
+    "isCreatingSolution": true,
+    "nodeVersion": "18.20.4",
+    "sdksVersions": {},
+    "version": "1.21.1",
+    "libraryName": "wp-registros-vehicular-2",
+    "libraryId": "bab95f9b-cff3-4f99-a786-e92524ca24aa",
+    "environment": "spo",
+    "packageManager": "npm",
+    "solutionName": "wp-registros-vehicular2",
+    "solutionShortDescription": "wp-registros-vehicular2 description",
+    "skipFeatureDeployment": true,
+    "isDomainIsolated": false,
+    "componentType": "webpart"
+  }
+}

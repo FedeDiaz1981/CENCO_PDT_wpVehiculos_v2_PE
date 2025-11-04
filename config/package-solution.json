@@ -1,0 +1,40 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/spfx-build/package-solution.schema.json",
+  "solution": {
+    "name": "wp-registros-vehicular-2-client-side-solution",
+    "id": "bab95f9b-cff3-4f99-a786-e92524ca24aa",
+    "version": "1.0.0.0",
+    "includeClientSideAssets": true,
+    "skipFeatureDeployment": true,
+    "isDomainIsolated": false,
+    "developer": {
+      "name": "",
+      "websiteUrl": "",
+      "privacyUrl": "",
+      "termsOfUseUrl": "",
+      "mpnId": "Undefined-1.21.1"
+    },
+    "metadata": {
+      "shortDescription": {
+        "default": "wp-registros-vehicular2 description"
+      },
+      "longDescription": {
+        "default": "wp-registros-vehicular2 description"
+      },
+      "screenshotPaths": [],
+      "videoUrl": "",
+      "categories": []
+    },
+    "features": [
+      {
+        "title": "wp-registros-vehicular-2 Feature",
+        "description": "The feature that activates elements of the wp-registros-vehicular-2 solution.",
+        "id": "bc585b71-7dfa-4182-9745-e37723e55925",
+        "version": "1.0.0.0"
+      }
+    ]
+  },
+  "paths": {
+    "zippedPackage": "solution/wp-registros-vehicular-2.sppkg"
+  }
+}
