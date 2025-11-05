@@ -77,6 +77,7 @@ const DatosVehiculo: React.FC<{
   lookups: Record<string, IDropdownOption[]>;
   // 👇 agregado
   empresaBloqueada?: boolean;
+  bonificacionBloqueada?: boolean;
 }> = ({
   vehiculo = {},
   setVehiculo,
@@ -87,7 +88,8 @@ const DatosVehiculo: React.FC<{
   isNumber,
   choices,
   lookups,
-  empresaBloqueada = false, // 👈 default
+  empresaBloqueada = false,
+  bonificacionBloqueada = false, 
 }) => {
   const safeVehiculo: VehiculoExt = vehiculo || {};
 
@@ -350,7 +352,7 @@ const DatosVehiculo: React.FC<{
                 Bonificacion: !!c,
               }))
             }
-            disabled={disabled}
+            disabled={disabled || bonificacionBloqueada}
           />
         </div>
 
@@ -359,7 +361,7 @@ const DatosVehiculo: React.FC<{
             label="N° de resolución"
             value={safeVehiculo.NroResolucion || ""}
             onChange={setText("NroResolucion")}
-            disabled={disabled}
+           disabled={disabled || bonificacionBloqueada}
           />
         )}
 

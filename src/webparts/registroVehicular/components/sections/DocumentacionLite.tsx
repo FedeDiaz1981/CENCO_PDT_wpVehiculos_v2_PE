@@ -28,6 +28,8 @@ const DocumentacionLite: React.FC<{
   showFumigacion?: boolean;
   showLimpieza?: boolean;
   showResBonificacion?: boolean;
+  // 👇 nuevo: para bloquear toda la sección
+  disabled?: boolean;
 }> = ({
   doc,
   setDoc,
@@ -36,11 +38,14 @@ const DocumentacionLite: React.FC<{
   showFumigacion = false,
   showLimpieza = false,
   showResBonificacion = false,
+  disabled = false,
 }) => {
   const setField =
     <K extends keyof DocStateLocal>(k: K) =>
-    (v: DocStateLocal[K]) =>
+    (v: DocStateLocal[K]) => {
+      if (disabled) return;
       setDoc((s) => ({ ...s, [k]: v }));
+    };
 
   const yearOptions = React.useMemo(() => {
     const currentYear = new Date().getFullYear();
@@ -52,7 +57,10 @@ const DocumentacionLite: React.FC<{
   }, []);
 
   return (
-    <div className={classes.card}>
+    <div
+      className={classes.card}
+      style={disabled ? { opacity: 0.6, pointerEvents: "auto" } : {}}
+    >
       <div className={classes.cardHeader}>
         <Icon iconName="Document" />
         <div className={classes.cardTitle}>2 - Documentación</div>
@@ -63,14 +71,16 @@ const DocumentacionLite: React.FC<{
         <DocCard
           title="Tarjeta de propiedad"
           file={doc.propFile}
-          onFileChange={(f) => setField("propFile")(f)}
+          onFileChange={disabled ? undefined : (f) => setField("propFile")(f)}
         />
 
         {showResBonificacion && (
           <DocCard
             title="Resolución de bonificación"
             file={doc.resBonificacionFile}
-            onFileChange={(f) => setField("resBonificacionFile")(f)}
+            onFileChange={
+              disabled ? undefined : (f) => setField("resBonificacionFile")(f)
+            }
           />
         )}
 
@@ -79,9 +89,15 @@ const DocumentacionLite: React.FC<{
             title="Certificado de fumigación"
             dateLabel="Fecha de emisión"
             dateValue={doc.fumigacionDate || ""}
-            onDateChange={(v) => setField("fumigacionDate")(v || "")}
+            onDateChange={
+              disabled
+                ? undefined
+                : (v) => setField("fumigacionDate")(v || "")
+            }
             file={doc.fumigacionFile}
-            onFileChange={(f) => setField("fumigacionFile")(f)}
+            onFileChange={
+              disabled ? undefined : (f) => setField("fumigacionFile")(f)
+            }
           />
         )}
 
@@ -89,14 +105,20 @@ const DocumentacionLite: React.FC<{
           title="Revisión técnica"
           dateLabel="Fecha de vencimiento"
           dateValue={doc.revTecDate || ""}
-          onDateChange={(v) => setField("revTecDate")(v || "")}
+          onDateChange={
+            disabled ? undefined : (v) => setField("revTecDate")(v || "")
+          }
           textLabel="Año de fabricación"
           textValue={doc.revTecText || ""}
-          onTextChange={(v) => setField("revTecText")(v || "")}
+          onTextChange={
+            disabled ? undefined : (v) => setField("revTecText")(v || "")
+          }
           textAsDropdown
           textOptions={yearOptions}
           file={doc.revTecFile}
-          onFileChange={(f) => setField("revTecFile")(f)}
+          onFileChange={
+            disabled ? undefined : (f) => setField("revTecFile")(f)
+          }
         />
 
         {showSanipes && (
@@ -104,12 +126,18 @@ const DocumentacionLite: React.FC<{
             title="Sanipes"
             dateLabel="Fecha de resolución"
             dateValue={doc.SanipesDate || ""}
-            onDateChange={(v) => setField("SanipesDate")(v || "")}
+            onDateChange={
+              disabled ? undefined : (v) => setField("SanipesDate")(v || "")
+            }
             textLabel="N° de expediente"
             textValue={doc.SanipesText || ""}
-            onTextChange={(v) => setField("SanipesText")(v || "")}
+            onTextChange={
+              disabled ? undefined : (v) => setField("SanipesText")(v || "")
+            }
             file={doc.sanipesFile}
-            onFileChange={(f) => setField("sanipesFile")(f)}
+            onFileChange={
+              disabled ? undefined : (f) => setField("sanipesFile")(f)
+            }
           />
         )}
 
@@ -118,9 +146,13 @@ const DocumentacionLite: React.FC<{
             title="Certificado de mantenimiento de termoking"
             dateLabel="Fecha de emisión"
             dateValue={doc.termokingDate || ""}
-            onDateChange={(v) => setField("termokingDate")(v || "")}
+            onDateChange={
+              disabled ? undefined : (v) => setField("termokingDate")(v || "")
+            }
             file={doc.termokingFile}
-            onFileChange={(f) => setField("termokingFile")(f)}
+            onFileChange={
+              disabled ? undefined : (f) => setField("termokingFile")(f)
+            }
           />
         )}
 
@@ -129,9 +161,13 @@ const DocumentacionLite: React.FC<{
             title="Limpieza y desinfección"
             dateLabel="Fecha de emisión"
             dateValue={doc.limpiezaDate || ""}
-            onDateChange={(v) => setField("limpiezaDate")(v || "")}
+            onDateChange={
+              disabled ? undefined : (v) => setField("limpiezaDate")(v || "")
+            }
             file={doc.limpiezaFile}
-            onFileChange={(f) => setField("limpiezaFile")(f)}
+            onFileChange={
+              disabled ? undefined : (f) => setField("limpiezaFile")(f)
+            }
           />
         )}
       </div>

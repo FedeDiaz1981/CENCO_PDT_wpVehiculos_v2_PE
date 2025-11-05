@@ -10,6 +10,17 @@ type Props = {
 };
 
 export function Notificaciones({ vehiculo, setVehiculo, disabled }: Props) {
+  // fuerza a string y saca cualquier tag html
+  const toPlain = (v: any): string => {
+    const s = String(v ?? "");
+    return s
+      .replace(/<[^>]*>/g, "") // quita etiquetas
+      .replace(/&nbsp;/gi, " ") // quita nbsp
+      .trim();
+  };
+
+  const value = toPlain(vehiculo.CorreosNotificacion);
+
   return (
     <Stack
       tokens={{ childrenGap: 12 }}
@@ -32,13 +43,17 @@ export function Notificaciones({ vehiculo, setVehiculo, disabled }: Props) {
           <TextField
             label="Correos de notificación"
             placeholder="correo1@dominio.com; correo2@dominio.com"
-            value={vehiculo.CorreosNotificacion || ""}
+            value={value}
             onChange={(_, v) =>
-              setVehiculo((s) => ({ ...s, CorreosNotificacion: v || "" }))
+              setVehiculo((s: any) => ({
+                ...(s || {}),
+                // guardamos ya limpio
+                CorreosNotificacion: toPlain(v),
+              }))
             }
-            disabled={disabled}
             multiline
             autoAdjustHeight
+            disabled={disabled}
           />
         </StackItem>
       </Stack>

@@ -1,5 +1,4 @@
 import * as React from "react";
-//import { SP } from "../../../pnp";
 import { spfi, SPFI } from "@pnp/sp";
 import { SPFx } from "@pnp/sp/presets/all";
 import {
@@ -10,10 +9,8 @@ import {
   SpinnerSize,
   TextField,
   Stack,
-  Icon,
   Separator,
 } from "@fluentui/react";
-
 import { WebPartContext } from "@microsoft/sp-webpart-base";
 
 import { classes, theme } from "../ui/styles";
@@ -55,13 +52,29 @@ type IVehiculoItemFull = IVehiculoItem & {
   EmpresaId?: number;
 };
 
+type DocStateLocal = {
+  propFile?: any;
+  revTecDate?: string;
+  revTecText?: string;
+  revTecFile?: any;
+  resBonificacionFile?: any;
+  fumigacionDate?: string;
+  fumigacionFile?: any;
+  SanipesDate?: string;
+  SanipesText?: string;
+  sanipesFile?: any;
+  termokingDate?: string;
+  termokingFile?: any;
+  limpiezaDate?: string;
+  limpiezaFile?: any;
+};
+
 const vehiculoInicial: IVehiculoItemFull = {
   Id: 0,
   Title: "",
   Proveedor: "",
   SOAT: "",
   CodigoInterno: "",
-
   Marca: "",
   Modelo: "",
   Capacidad: "",
@@ -89,22 +102,14 @@ const docinicial: DocStateLocal = {
   propFile: null,
   resBonificacionFile: null,
   fumigacionFile: null,
-  //fumigacionDate: null,
   revTecFile: null,
-  //revTecDate: null,
   revTecText: "",
   sanipesFile: null,
-  //SanipesDate: null,
   SanipesText: "",
   termokingFile: null,
-  //termokingDate: null,
   limpiezaFile: null,
-  //limpiezaDate: null,
 };
 
-// -----------------------------------------------------------------------------
-// MATRIZ DE VISIBILIDAD DE DOCUMENTOS (Temperatura x TipoUnidad x Bonificacion)
-// -----------------------------------------------------------------------------
 const DOC_MATRIX: Record<
   "con temperatura" | "seco",
   Record<
@@ -208,35 +213,6 @@ function getDocumentosVisibles(vehiculo: {
   };
 }
 
-// -------------------------
-// Estado local de documentación
-// -------------------------
-type DocStateLocal = {
-  propFile?: any;
-
-  revTecDate?: string;
-  revTecText?: string;
-  revTecFile?: any;
-
-  resBonificacionFile?: any;
-
-  fumigacionDate?: string;
-  fumigacionFile?: any;
-
-  SanipesDate?: string;
-  SanipesText?: string;
-  sanipesFile?: any;
-
-  termokingDate?: string;
-  termokingFile?: any;
-
-  limpiezaDate?: string;
-  limpiezaFile?: any;
-};
-
-// -------------------------
-// DocumentacionLiteLocal
-// -------------------------
 const DocumentacionLiteLocal: React.FC<{
   doc: DocStateLocal;
   setDoc: React.Dispatch<React.SetStateAction<DocStateLocal>>;
@@ -245,6 +221,7 @@ const DocumentacionLiteLocal: React.FC<{
   showFumigacion?: boolean;
   showLimpieza?: boolean;
   showResBonificacion?: boolean;
+  disabled?: boolean;
 }> = ({
   doc,
   setDoc,
@@ -253,11 +230,14 @@ const DocumentacionLiteLocal: React.FC<{
   showFumigacion = false,
   showLimpieza = false,
   showResBonificacion = false,
+  disabled = false,
 }) => {
   const setField =
     <K extends keyof DocStateLocal>(k: K) =>
-    (v: DocStateLocal[K]) =>
+    (v: DocStateLocal[K]) => {
+      if (disabled) return;
       setDoc((s) => ({ ...s, [k]: v }));
+    };
 
   const fileOut = (f: any): File | undefined =>
     f instanceof File ? f : undefined;
@@ -271,10 +251,19 @@ const DocumentacionLiteLocal: React.FC<{
     return arr;
   }, []);
 
+  const getExistingName = (f: any): string | undefined => {
+    if (!f) return undefined;
+    if (typeof f === "string") return f;
+    if (typeof f === "object" && f.name) return String(f.name);
+    return undefined;
+  };
+
   return (
-    <div className={classes.card}>
+    <div
+      className={classes.card}
+      style={disabled ? { opacity: 0.6 } : undefined}
+    >
       <div className={classes.cardHeader}>
-        <Icon iconName="Document" />
         <div className={classes.cardTitle}>2- Documentación</div>
       </div>
       <Separator />
@@ -284,10 +273,8 @@ const DocumentacionLiteLocal: React.FC<{
           <DocCard
             title="Tarjeta de propiedad"
             file={fileOut(doc.propFile)}
-            existingFileName={
-              typeof doc.propFile === "string" ? doc.propFile : undefined
-            }
-            onFileChange={(f) => setField("propFile")(f)}
+            existingFileName={getExistingName(doc.propFile)}
+            onFileChange={disabled ? undefined : (f) => setField("propFile")(f)}
           />
         </div>
 
@@ -297,9 +284,13 @@ const DocumentacionLiteLocal: React.FC<{
               title="Resolución de bonificación"
               file={fileOut(doc.resBonificacionFile)}
               existingFileName={
-                typeof doc.propFile === "string" ? doc.propFile : undefined
+                typeof doc.resBonificacionFile === "string"
+                  ? doc.resBonificacionFile
+                  : undefined
               }
-              onFileChange={(f) => setField("resBonificacionFile")(f)}
+              onFileChange={
+                disabled ? undefined : (f) => setField("resBonificacionFile")(f)
+              }
             />
           </div>
         )}
@@ -310,12 +301,20 @@ const DocumentacionLiteLocal: React.FC<{
               title="Certificado de fumigación"
               dateLabel="Fecha de emisión"
               dateValue={doc.fumigacionDate || ""}
-              onDateChange={(value) => setField("fumigacionDate")(value || "")}
+              onDateChange={
+                disabled
+                  ? undefined
+                  : (value) => setField("fumigacionDate")(value || "")
+              }
               file={fileOut(doc.fumigacionFile)}
               existingFileName={
-                typeof doc.propFile === "string" ? doc.propFile : undefined
+                typeof doc.fumigacionFile === "string"
+                  ? doc.fumigacionFile
+                  : undefined
               }
-              onFileChange={(f) => setField("fumigacionFile")(f)}
+              onFileChange={
+                disabled ? undefined : (f) => setField("fumigacionFile")(f)
+              }
             />
           </div>
         )}
@@ -325,17 +324,23 @@ const DocumentacionLiteLocal: React.FC<{
             title="Revisión técnica"
             dateLabel="Fecha de vencimiento"
             dateValue={doc.revTecDate || ""}
-            onDateChange={(value) => setField("revTecDate")(value || "")}
+            onDateChange={
+              disabled ? undefined : (value) => setField("revTecDate")(value || "")
+            }
             textLabel="Año de fabricación"
             textValue={doc.revTecText ?? ""}
-            onTextChange={(v) => setField("revTecText")(String(v ?? ""))}
+            onTextChange={
+              disabled
+                ? undefined
+                : (v) => setField("revTecText")(String(v ?? ""))
+            }
             textAsDropdown
             textOptions={yearOptions}
             file={fileOut(doc.revTecFile)}
             existingFileName={
-              typeof doc.propFile === "string" ? doc.propFile : undefined
+              typeof doc.revTecFile === "string" ? doc.revTecFile : undefined
             }
-            onFileChange={(f) => setField("revTecFile")(f)}
+            onFileChange={disabled ? undefined : (f) => setField("revTecFile")(f)}
           />
         </div>
 
@@ -345,15 +350,25 @@ const DocumentacionLiteLocal: React.FC<{
               title="Sanipes"
               dateLabel="Fecha de resolución de incidente"
               dateValue={doc.SanipesDate || ""}
-              onDateChange={(value) => setField("SanipesDate")(value || "")}
+              onDateChange={
+                disabled
+                  ? undefined
+                  : (value) => setField("SanipesDate")(value || "")
+              }
               textLabel="N° de expediente"
               textValue={doc.SanipesText ?? ""}
-              onTextChange={(v) => setField("SanipesText")(String(v ?? ""))}
+              onTextChange={
+                disabled
+                  ? undefined
+                  : (v) => setField("SanipesText")(String(v ?? ""))
+              }
               file={fileOut(doc.sanipesFile)}
               existingFileName={
-                typeof doc.propFile === "string" ? doc.propFile : undefined
+                typeof doc.sanipesFile === "string"
+                  ? doc.sanipesFile
+                  : undefined
               }
-              onFileChange={(f) => setField("sanipesFile")(f)}
+              onFileChange={disabled ? undefined : (f) => setField("sanipesFile")(f)}
             />
           </div>
         )}
@@ -364,12 +379,18 @@ const DocumentacionLiteLocal: React.FC<{
               title="Certificado de mantenimiento de termoking"
               dateLabel="Fecha de emisión"
               dateValue={doc.termokingDate || ""}
-              onDateChange={(value) => setField("termokingDate")(value || "")}
+              onDateChange={
+                disabled
+                  ? undefined
+                  : (value) => setField("termokingDate")(value || "")
+              }
               file={fileOut(doc.termokingFile)}
               existingFileName={
-                typeof doc.propFile === "string" ? doc.propFile : undefined
+                typeof doc.termokingFile === "string"
+                  ? doc.termokingFile
+                  : undefined
               }
-              onFileChange={(f) => setField("termokingFile")(f)}
+              onFileChange={disabled ? undefined : (f) => setField("termokingFile")(f)}
             />
           </div>
         )}
@@ -380,12 +401,18 @@ const DocumentacionLiteLocal: React.FC<{
               title="Limpieza y desinfección"
               dateLabel="Fecha de emisión"
               dateValue={doc.limpiezaDate || ""}
-              onDateChange={(value) => setField("limpiezaDate")(value || "")}
+              onDateChange={
+                disabled
+                  ? undefined
+                  : (value) => setField("limpiezaDate")(value || "")
+              }
               file={fileOut(doc.limpiezaFile)}
               existingFileName={
-                typeof doc.propFile === "string" ? doc.propFile : undefined
+                typeof doc.limpiezaFile === "string"
+                  ? doc.limpiezaFile
+                  : undefined
               }
-              onFileChange={(f) => setField("limpiezaFile")(f)}
+              onFileChange={disabled ? undefined : (f) => setField("limpiezaFile")(f)}
             />
           </div>
         )}
@@ -394,9 +421,6 @@ const DocumentacionLiteLocal: React.FC<{
   );
 };
 
-// -------------------------
-// Notificaciones
-// -------------------------
 const Notificaciones: React.FC<{
   vehiculo: any;
   setVehiculo: React.Dispatch<React.SetStateAction<any>>;
@@ -433,9 +457,6 @@ const Notificaciones: React.FC<{
   );
 };
 
-// -------------------------
-// ActionTile
-// -------------------------
 const ActionTile: React.FC<{
   icon?: string;
   label: string;
@@ -463,9 +484,6 @@ const ActionTile: React.FC<{
   );
 };
 
-// -------------------------
-// RegistroVehicular
-// -------------------------
 const RegistroVehicular: React.FC<{
   spContext: WebPartContext;
   vehiculosListTitle: string;
@@ -477,12 +495,7 @@ const RegistroVehicular: React.FC<{
   Coordinador: boolean;
   Transportista?: boolean;
 }> = (_props) => {
-  const {
-    spContext,
-    Proveedor,
-    Transportista,
-    proveedoresList,
-  } = _props;
+  const { spContext, Proveedor, Transportista, proveedoresList } = _props;
 
   const sp = React.useMemo<SPFI>(() => {
     return spfi().using(SPFx(spContext));
@@ -491,26 +504,75 @@ const RegistroVehicular: React.FC<{
   const [accion, setAccion] = React.useState<"crear" | "actualizar" | "baja">(
     "crear"
   );
-
   const [modo, setModo] = React.useState<"INGRESAR" | "MODIFICAR" | "BAJA">(
     "INGRESAR"
   );
-
   const [vehiculos, _setVehiculos] = React.useState<IVehiculoItemFull[]>([]);
   const [_selectedVehiculo, setSelectedVehiculo] =
     React.useState<IVehiculoItem | null>(null);
-
   const [_certificadosVehiculo, setCertificadosVehiculo] = React.useState<
     ICertificadoItem[]
   >([]);
-
   const [busy, setBusy] = React.useState<boolean>(false);
-
   const [vehiculo, setVehiculo] =
     React.useState<IVehiculoItemFull>(vehiculoInicial);
+  const [empresaBloqueada, setEmpresaBloqueada] =
+    React.useState<boolean>(false);
+  const [empresaUsuarioId, setEmpresaUsuarioId] = React.useState<number | null>(
+    null
+  );
 
-  const [empresaBloqueada, setEmpresaBloqueada] = React.useState<boolean>(false);
-  const [empresaUsuarioId, setEmpresaUsuarioId] = React.useState<number | null>(null); // 👈
+  const [doc, setDoc] = React.useState<DocStateLocal>({
+    propFile: undefined,
+    revTecDate: "",
+    revTecText: "",
+    revTecFile: undefined,
+    resBonificacionFile: undefined,
+    fumigacionDate: "",
+    fumigacionFile: undefined,
+    SanipesDate: "",
+    SanipesText: "",
+    sanipesFile: undefined,
+    termokingDate: "",
+    termokingFile: undefined,
+    limpiezaDate: "",
+    limpiezaFile: undefined,
+  });
+
+  const [fechaError, setFechaError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (!doc.termokingDate && !doc.limpiezaDate) {
+      setFechaError(null);
+      return;
+    }
+
+    const hoy = new Date();
+    let errorMsg: string | null = null;
+
+    if (doc.termokingDate) {
+      const termoking = new Date(doc.termokingDate);
+      const diffMeses =
+        (hoy.getFullYear() - termoking.getFullYear()) * 12 +
+        (hoy.getMonth() - termoking.getMonth());
+      if (diffMeses > 6) {
+        errorMsg =
+          "La fecha de emisión del certificado de termoking no puede tener más de 6 meses de antigüedad.";
+      }
+    }
+
+    if (!errorMsg && doc.limpiezaDate) {
+      const limpieza = new Date(doc.limpiezaDate);
+      const diffDias =
+        (hoy.getTime() - limpieza.getTime()) / (1000 * 60 * 60 * 24);
+      if (diffDias > 31) {
+        errorMsg =
+          "La fecha de emisión del certificado de limpieza y desinfección no puede tener más de un mes de antigüedad.";
+      }
+    }
+
+    setFechaError(errorMsg);
+  }, [doc.termokingDate, doc.limpiezaDate]);
 
   React.useEffect(() => {
     const run = async () => {
@@ -537,7 +599,7 @@ const RegistroVehicular: React.FC<{
             Empresa: prov.Title,
           }));
           setEmpresaBloqueada(true);
-          setEmpresaUsuarioId(prov.Id); // 👈 guardamos la empresa del usuario
+          setEmpresaUsuarioId(prov.Id);
         } else {
           setEmpresaBloqueada(false);
           setEmpresaUsuarioId(null);
@@ -552,33 +614,10 @@ const RegistroVehicular: React.FC<{
     void run();
   }, [Proveedor, Transportista, proveedoresList, sp]);
 
-  const [doc, setDoc] = React.useState<DocStateLocal>({
-    propFile: undefined,
-
-    revTecDate: "",
-    revTecText: "",
-    revTecFile: undefined,
-
-    resBonificacionFile: undefined,
-
-    fumigacionDate: "",
-    fumigacionFile: undefined,
-
-    SanipesDate: "",
-    SanipesText: "",
-    sanipesFile: undefined,
-
-    termokingDate: "",
-    termokingFile: undefined,
-
-    limpiezaDate: "",
-    limpiezaFile: undefined,
-  });
-
   const onIngresarClick = () => {
     setAccion("crear");
 
-    setVehiculo({
+    let baseVeh = {
       ...vehiculoInicial,
       Id: 0,
       EmpresaId: undefined,
@@ -606,12 +645,17 @@ const RegistroVehicular: React.FC<{
       TipoUnidad: "",
       Activo: true,
       CorreosNotificacion: "",
-    });
+    } as IVehiculoItemFull;
 
-    setDoc({
-      ...docinicial,
-    });
+    if (empresaBloqueada && empresaUsuarioId) {
+      baseVeh = {
+        ...baseVeh,
+        EmpresaId: empresaUsuarioId,
+      };
+    }
 
+    setVehiculo(baseVeh);
+    setDoc({ ...docinicial });
     setSelectedVehiculo(null);
   };
 
@@ -806,8 +850,6 @@ const RegistroVehicular: React.FC<{
           const toYMD = (v?: string | null) =>
             v ? new Date(v).toISOString().slice(0, 10) : "";
 
-          console.log(certRows);
-
           for (const c of certRows) {
             const tipo = (c.tipo || "").toUpperCase();
 
@@ -816,7 +858,6 @@ const RegistroVehicular: React.FC<{
             }
 
             if (tipo.includes("REVISI") && tipo.includes("TÉCN")) {
-              console.log("caducidad: " + c);
               next.revTecDate = toYMD(c.caducidad);
               next.revTecText =
                 (c.anio !== null && c.anio !== undefined
@@ -877,7 +918,6 @@ const RegistroVehicular: React.FC<{
 
   const cargarVehiculos = React.useCallback(async () => {
     try {
-      // armamos la query base
       let req = sp.web.lists
         .getByTitle(LISTS.Vehiculos)
         .items.select(
@@ -909,7 +949,6 @@ const RegistroVehicular: React.FC<{
         )
         .expand(VEH_FIELDS.Proveedor);
 
-      // si es proveedor/transportista y tenemos empresa, filtramos
       if ((Proveedor || Transportista) && empresaUsuarioId) {
         req = req.filter(`${VEH_FIELDS.Proveedor}/Id eq ${empresaUsuarioId}`);
       }
@@ -944,6 +983,12 @@ const RegistroVehicular: React.FC<{
         };
       }>;
 
+      const cleanHtml = (v: any) =>
+        String(v ?? "")
+          .replace(/<[^>]*>/g, "")
+          .replace(/&nbsp;/gi, " ")
+          .trim();
+
       const mapped: IVehiculoItemFull[] = items.map((it) => ({
         Id: it.Id,
         Title: it[VEH_FIELDS.Title] ?? "",
@@ -968,7 +1013,7 @@ const RegistroVehicular: React.FC<{
         TipoTemperatura: it[VEH_FIELDS.TipoTemperatura] ?? "",
         TipoUnidad: it[VEH_FIELDS.TipoUnidad] ?? "",
         Activo: it[VEH_FIELDS.Activo] !== false,
-        CorreosNotificacion: it[VEH_FIELDS.Correos] ?? "",
+        CorreosNotificacion: cleanHtml(it[VEH_FIELDS.Correos]),
         Empresa: it.Proveedor?.Title ?? "",
         EmpresaId: it.Proveedor?.Id ?? undefined,
       }));
@@ -1039,6 +1084,7 @@ const RegistroVehicular: React.FC<{
             choices={choices}
             lookups={{}}
             empresaBloqueada={empresaBloqueada}
+            bonificacionBloqueada={!!Transportista}
           />
 
           <Notificaciones
@@ -1055,7 +1101,14 @@ const RegistroVehicular: React.FC<{
             showFumigacion={docsFlags.showFumigacion}
             showLimpieza={docsFlags.showLimpieza}
             showResBonificacion={docsFlags.showResBonificacion}
+            disabled={!!Transportista}
           />
+
+          {fechaError && (
+            <div style={{ color: "red", marginTop: 12, fontWeight: 600 }}>
+              {fechaError}
+            </div>
+          )}
 
           <div className={classes.footer}>
             <PrimaryButton
@@ -1067,7 +1120,7 @@ const RegistroVehicular: React.FC<{
                   : "GUARDAR"
               }
               onClick={onGuardar}
-              disabled={busy}
+              disabled={busy || !!fechaError}
             />
             <DefaultButton
               text="Cancelar"
