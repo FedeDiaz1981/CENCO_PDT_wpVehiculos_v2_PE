@@ -325,7 +325,9 @@ const DocumentacionLiteLocal: React.FC<{
             dateLabel="Fecha de vencimiento"
             dateValue={doc.revTecDate || ""}
             onDateChange={
-              disabled ? undefined : (value) => setField("revTecDate")(value || "")
+              disabled
+                ? undefined
+                : (value) => setField("revTecDate")(value || "")
             }
             textLabel="Año de fabricación"
             textValue={doc.revTecText ?? ""}
@@ -340,7 +342,9 @@ const DocumentacionLiteLocal: React.FC<{
             existingFileName={
               typeof doc.revTecFile === "string" ? doc.revTecFile : undefined
             }
-            onFileChange={disabled ? undefined : (f) => setField("revTecFile")(f)}
+            onFileChange={
+              disabled ? undefined : (f) => setField("revTecFile")(f)
+            }
           />
         </div>
 
@@ -368,7 +372,9 @@ const DocumentacionLiteLocal: React.FC<{
                   ? doc.sanipesFile
                   : undefined
               }
-              onFileChange={disabled ? undefined : (f) => setField("sanipesFile")(f)}
+              onFileChange={
+                disabled ? undefined : (f) => setField("sanipesFile")(f)
+              }
             />
           </div>
         )}
@@ -390,7 +396,9 @@ const DocumentacionLiteLocal: React.FC<{
                   ? doc.termokingFile
                   : undefined
               }
-              onFileChange={disabled ? undefined : (f) => setField("termokingFile")(f)}
+              onFileChange={
+                disabled ? undefined : (f) => setField("termokingFile")(f)
+              }
             />
           </div>
         )}
@@ -412,7 +420,9 @@ const DocumentacionLiteLocal: React.FC<{
                   ? doc.limpiezaFile
                   : undefined
               }
-              onFileChange={disabled ? undefined : (f) => setField("limpiezaFile")(f)}
+              onFileChange={
+                disabled ? undefined : (f) => setField("limpiezaFile")(f)
+              }
             />
           </div>
         )}
@@ -541,17 +551,40 @@ const RegistroVehicular: React.FC<{
 
   const [fechaError, setFechaError] = React.useState<string | null>(null);
 
+  // ⬇⬇ VALIDACIONES nuevas (rev técnica y fumigación) + las que ya estaban
   React.useEffect(() => {
-    if (!doc.termokingDate && !doc.limpiezaDate) {
-      setFechaError(null);
-      return;
-    }
-
     const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+
     let errorMsg: string | null = null;
 
-    if (doc.termokingDate) {
+    // 1) Revisión técnica: vencimiento no puede ser pasado
+    if (doc.revTecDate) {
+      const rev = new Date(doc.revTecDate);
+      rev.setHours(0, 0, 0, 0);
+      if (rev < hoy) {
+        errorMsg =
+          "La fecha de vencimiento de la revisión técnica no puede estar vencida.";
+      }
+    }
+
+    // 2) Fumigación: no más de 6 meses de antigüedad
+    if (!errorMsg && doc.fumigacionDate) {
+      const fum = new Date(doc.fumigacionDate);
+      fum.setHours(0, 0, 0, 0);
+      const diffMeses =
+        (hoy.getFullYear() - fum.getFullYear()) * 12 +
+        (hoy.getMonth() - fum.getMonth());
+      if (diffMeses > 6) {
+        errorMsg =
+          "La fecha de emisión del certificado de fumigación no puede tener más de 6 meses de antigüedad.";
+      }
+    }
+
+    // 3) Termoking: ya estaba a 6 meses
+    if (!errorMsg && doc.termokingDate) {
       const termoking = new Date(doc.termokingDate);
+      termoking.setHours(0, 0, 0, 0);
       const diffMeses =
         (hoy.getFullYear() - termoking.getFullYear()) * 12 +
         (hoy.getMonth() - termoking.getMonth());
@@ -561,8 +594,10 @@ const RegistroVehicular: React.FC<{
       }
     }
 
+    // 4) Limpieza: 31 días
     if (!errorMsg && doc.limpiezaDate) {
       const limpieza = new Date(doc.limpiezaDate);
+      limpieza.setHours(0, 0, 0, 0);
       const diffDias =
         (hoy.getTime() - limpieza.getTime()) / (1000 * 60 * 60 * 24);
       if (diffDias > 31) {
@@ -572,7 +607,7 @@ const RegistroVehicular: React.FC<{
     }
 
     setFechaError(errorMsg);
-  }, [doc.termokingDate, doc.limpiezaDate]);
+  }, [doc.revTecDate, doc.fumigacionDate, doc.termokingDate, doc.limpiezaDate]);
 
   React.useEffect(() => {
     const run = async () => {
@@ -1025,6 +1060,21 @@ const RegistroVehicular: React.FC<{
     }
   }, [sp, _setVehiculos, Proveedor, Transportista, empresaUsuarioId]);
 
+  // campos bloqueados en modificar
+  const lockedFields =
+    accion === "actualizar"
+      ? [
+          "Empresa",
+          "EmpresaId",
+          "Placa",
+          "Title",
+          "Marca",
+          "Modelo",
+          "Codigo",
+          "CodigoInterno",
+        ]
+      : [];
+
   return (
     <ThemeProvider theme={theme}>
       <div className={classes.root} aria-busy={busy}>
@@ -1085,6 +1135,7 @@ const RegistroVehicular: React.FC<{
             lookups={{}}
             empresaBloqueada={empresaBloqueada}
             bonificacionBloqueada={!!Transportista}
+            lockedFields={lockedFields}
           />
 
           <Notificaciones

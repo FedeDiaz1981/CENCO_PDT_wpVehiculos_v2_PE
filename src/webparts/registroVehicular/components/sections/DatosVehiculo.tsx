@@ -75,9 +75,11 @@ const DatosVehiculo: React.FC<{
   isNumber: (n: string) => boolean;
   choices: Record<string, IDropdownOption[]>;
   lookups: Record<string, IDropdownOption[]>;
-  // 👇 agregado
+  // 👇 ya estaba
   empresaBloqueada?: boolean;
   bonificacionBloqueada?: boolean;
+  // 👇 nuevo: campos que vienen bloqueados desde el padre (modo modificar)
+  lockedFields?: string[];
 }> = ({
   vehiculo = {},
   setVehiculo,
@@ -89,11 +91,18 @@ const DatosVehiculo: React.FC<{
   choices,
   lookups,
   empresaBloqueada = false,
-  bonificacionBloqueada = false, 
+  bonificacionBloqueada = false,
+  lockedFields = [],
 }) => {
   const safeVehiculo: VehiculoExt = vehiculo || {};
 
   const [isAlturaModalOpen, setIsAlturaModalOpen] = React.useState(false);
+
+  // helper para saber si este campo viene bloqueado desde arriba
+  const isLocked = React.useCallback(
+    (name: string) => lockedFields?.includes(name),
+    [lockedFields]
+  );
 
   // setter genérico para <TextField />
   const setText =
@@ -181,7 +190,13 @@ const DatosVehiculo: React.FC<{
             options={EMPRESA_OPTIONS}
             selectedKey={safeVehiculo.EmpresaId || undefined} // usamos el ID guardado
             onChange={onEmpresaChange}
-            disabled={disabled || empresaBloqueada} // 👈 acá se bloquea
+            // 👇 queda bloqueada si: está deshabilitado el form, o venía bloqueada por rol, o vino en lockedFields
+            disabled={
+              disabled ||
+              empresaBloqueada ||
+              isLocked("Empresa") ||
+              isLocked("EmpresaId")
+            }
           />
 
           {proveedorActual && (
@@ -201,7 +216,6 @@ const DatosVehiculo: React.FC<{
           <div className={classes.fieldLabel}>Temperatura</div>
           <Dropdown
             placeholder="Seleccione..."
-            // usamos EXACTAMENTE la clave que viene desde el padre
             options={choices["Temperatura"] || []}
             selectedKey={safeVehiculo.Temperatura || undefined}
             onChange={setChoiceFromList("Temperatura")}
@@ -242,7 +256,8 @@ const DatosVehiculo: React.FC<{
           label="Placa"
           value={safeVehiculo.Placa || ""}
           onChange={setText("Placa")}
-          disabled={disabled}
+          // 👇 bloquea si viene en lockedFields (Placa o Title)
+          disabled={disabled || isLocked("Placa") || isLocked("Title")}
         />
 
         <TextField
@@ -256,7 +271,10 @@ const DatosVehiculo: React.FC<{
           label="Código de unidad"
           value={safeVehiculo.Codigo || ""}
           onChange={setText("Codigo")}
-          disabled={disabled}
+          // 👇 bloquea si viene en lockedFields como Codigo o CodigoInterno
+          disabled={
+            disabled || isLocked("Codigo") || isLocked("CodigoInterno")
+          }
         />
       </div>
 
@@ -266,14 +284,14 @@ const DatosVehiculo: React.FC<{
           label="Marca"
           value={safeVehiculo.Marca || ""}
           onChange={setText("Marca")}
-          disabled={disabled}
+          disabled={disabled || isLocked("Marca")}
         />
 
         <TextField
           label="Modelo"
           value={safeVehiculo.Modelo || ""}
           onChange={setText("Modelo")}
-          disabled={disabled}
+          disabled={disabled || isLocked("Modelo")}
         />
 
         <div />
@@ -361,7 +379,7 @@ const DatosVehiculo: React.FC<{
             label="N° de resolución"
             value={safeVehiculo.NroResolucion || ""}
             onChange={setText("NroResolucion")}
-           disabled={disabled || bonificacionBloqueada}
+            disabled={disabled || bonificacionBloqueada}
           />
         )}
 
