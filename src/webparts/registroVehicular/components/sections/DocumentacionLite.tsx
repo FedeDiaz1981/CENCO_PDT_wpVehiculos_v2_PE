@@ -28,7 +28,7 @@ const DocumentacionLite: React.FC<{
   showFumigacion?: boolean;
   showLimpieza?: boolean;
   showResBonificacion?: boolean;
-  // 👇 nuevo: para bloquear toda la sección
+  // para bloquear toda la sección
   disabled?: boolean;
 }> = ({
   doc,
@@ -45,6 +45,26 @@ const DocumentacionLite: React.FC<{
     (v: DocStateLocal[K]) => {
       if (disabled) return;
       setDoc((s) => ({ ...s, [k]: v }));
+    };
+
+  // helper para manejar archivo + alert
+  const handleFileChange =
+    (field: keyof DocStateLocal, label: string) =>
+    (f: any) => {
+      if (disabled) return;
+
+      setDoc((s) => ({ ...(s || {}), [field]: f }));
+
+      if (f) {
+        const name = f?.name ?? (typeof f === "string" ? f : "");
+        window.alert(
+          `Documento "${label}" se adjuntó correctamente${
+            name ? ` (${name})` : ""
+          }.`
+        );
+      } else {
+        window.alert(`No se adjuntó ningún archivo para "${label}".`);
+      }
     };
 
   const yearOptions = React.useMemo(() => {
@@ -68,26 +88,38 @@ const DocumentacionLite: React.FC<{
       <Separator />
 
       <div className={classes.docsGrid}>
+        {/* Tarjeta de propiedad – obligatorio */}
         <DocCard
-          title="Tarjeta de propiedad"
+          title="Tarjeta de propiedad *"
           file={doc.propFile}
-          onFileChange={disabled ? undefined : (f) => setField("propFile")(f)}
+          onFileChange={
+            disabled
+              ? undefined
+              : handleFileChange("propFile", "Tarjeta de propiedad")
+          }
         />
 
+        {/* Resolución de bonificación – obligatorio cuando aplica */}
         {showResBonificacion && (
           <DocCard
-            title="Resolución de bonificación"
+            title="Resolución de bonificación *"
             file={doc.resBonificacionFile}
             onFileChange={
-              disabled ? undefined : (f) => setField("resBonificacionFile")(f)
+              disabled
+                ? undefined
+                : handleFileChange(
+                    "resBonificacionFile",
+                    "Resolución de bonificación"
+                  )
             }
           />
         )}
 
+        {/* Fumigación – obligatorio cuando aplica */}
         {showFumigacion && (
           <DocCard
-            title="Certificado de fumigación"
-            dateLabel="Fecha de emisión"
+            title="Certificado de fumigación *"
+            dateLabel="Fecha de emisión *"
             dateValue={doc.fumigacionDate || ""}
             onDateChange={
               disabled
@@ -96,19 +128,25 @@ const DocumentacionLite: React.FC<{
             }
             file={doc.fumigacionFile}
             onFileChange={
-              disabled ? undefined : (f) => setField("fumigacionFile")(f)
+              disabled
+                ? undefined
+                : handleFileChange(
+                    "fumigacionFile",
+                    "Certificado de fumigación"
+                  )
             }
           />
         )}
 
+        {/* Revisión técnica – obligatorio */}
         <DocCard
-          title="Revisión técnica"
-          dateLabel="Fecha de vencimiento"
+          title="Revisión técnica *"
+          dateLabel="Fecha de vencimiento *"
           dateValue={doc.revTecDate || ""}
           onDateChange={
             disabled ? undefined : (v) => setField("revTecDate")(v || "")
           }
-          textLabel="Año de fabricación"
+          textLabel="Año de fabricación *"
           textValue={doc.revTecText || ""}
           onTextChange={
             disabled ? undefined : (v) => setField("revTecText")(v || "")
@@ -117,13 +155,16 @@ const DocumentacionLite: React.FC<{
           textOptions={yearOptions}
           file={doc.revTecFile}
           onFileChange={
-            disabled ? undefined : (f) => setField("revTecFile")(f)
+            disabled
+              ? undefined
+              : handleFileChange("revTecFile", "Revisión técnica")
           }
         />
 
+        {/* SANIPES – NO obligatorio */}
         {showSanipes && (
           <DocCard
-            title="Sanipes"
+            title="SANIPES"
             dateLabel="Fecha de resolución"
             dateValue={doc.SanipesDate || ""}
             onDateChange={
@@ -136,37 +177,55 @@ const DocumentacionLite: React.FC<{
             }
             file={doc.sanipesFile}
             onFileChange={
-              disabled ? undefined : (f) => setField("sanipesFile")(f)
+              disabled
+                ? undefined
+                : handleFileChange("sanipesFile", "SANIPES")
             }
           />
         )}
 
+        {/* Termoking – obligatorio cuando aplica */}
         {showTermoking && (
           <DocCard
-            title="Certificado de mantenimiento de termoking"
-            dateLabel="Fecha de emisión"
+            title="Certificado de mantenimiento de termoking *"
+            dateLabel="Fecha de emisión *"
             dateValue={doc.termokingDate || ""}
             onDateChange={
-              disabled ? undefined : (v) => setField("termokingDate")(v || "")
+              disabled
+                ? undefined
+                : (v) => setField("termokingDate")(v || "")
             }
             file={doc.termokingFile}
             onFileChange={
-              disabled ? undefined : (f) => setField("termokingFile")(f)
+              disabled
+                ? undefined
+                : handleFileChange(
+                    "termokingFile",
+                    "Certificado de mantenimiento de termoking"
+                  )
             }
           />
         )}
 
+        {/* Limpieza y desinfección – obligatorio cuando aplica */}
         {showLimpieza && (
           <DocCard
-            title="Limpieza y desinfección"
-            dateLabel="Fecha de emisión"
+            title="Limpieza y desinfección *"
+            dateLabel="Fecha de emisión *"
             dateValue={doc.limpiezaDate || ""}
             onDateChange={
-              disabled ? undefined : (v) => setField("limpiezaDate")(v || "")
+              disabled
+                ? undefined
+                : (v) => setField("limpiezaDate")(v || "")
             }
             file={doc.limpiezaFile}
             onFileChange={
-              disabled ? undefined : (f) => setField("limpiezaFile")(f)
+              disabled
+                ? undefined
+                : handleFileChange(
+                    "limpiezaFile",
+                    "Limpieza y desinfección"
+                  )
             }
           />
         )}

@@ -65,11 +65,20 @@ export const Documentacion: React.FC<Props> = ({
     return undefined;
   };
 
-  // handler para guardar archivos
+  // handler para guardar archivos + alert
   const handleFileChange =
-    (field: keyof DocState) =>
+    (field: keyof DocState, label: string) =>
     (f?: File) => {
       set(field)(f as any);
+
+      if (f) {
+        const name = f.name || "";
+        window.alert(
+          `Documento "${label}" se adjuntó correctamente${
+            name ? ` (${name})` : ""
+          }.`
+        );
+      }
     };
 
   // -----------------------
@@ -211,7 +220,7 @@ export const Documentacion: React.FC<Props> = ({
           <DocCard
             title="Tarjeta de propiedad"
             file={normalizeFileOut(doc.propFile)}
-            onFileChange={handleFileChange("propFile")}
+            onFileChange={handleFileChange("propFile", "Tarjeta de propiedad")}
           />
         </div>
 
@@ -221,7 +230,10 @@ export const Documentacion: React.FC<Props> = ({
             <DocCard
               title="Resolución de bonificación"
               file={normalizeFileOut(doc.resBonificacionFile)}
-              onFileChange={handleFileChange("resBonificacionFile")}
+              onFileChange={handleFileChange(
+                "resBonificacionFile",
+                "Resolución de bonificación"
+              )}
             />
           </div>
         )}
@@ -235,7 +247,10 @@ export const Documentacion: React.FC<Props> = ({
               dateValue={normalizeDateOut(doc.fumigacionDate)}
               onDateChange={handleDateChange("fumigacionDate")}
               file={normalizeFileOut(doc.fumigacionFile)}
-              onFileChange={handleFileChange("fumigacionFile")}
+              onFileChange={handleFileChange(
+                "fumigacionFile",
+                "Certificado de fumigación"
+              )}
             />
           </div>
         )}
@@ -253,7 +268,10 @@ export const Documentacion: React.FC<Props> = ({
             textAsDropdown
             textOptions={yearOptions}
             file={normalizeFileOut(doc.revTecFile)}
-            onFileChange={handleFileChange("revTecFile")}
+            onFileChange={handleFileChange(
+              "revTecFile",
+              "Revisión técnica"
+            )}
           />
         </div>
 
@@ -261,15 +279,18 @@ export const Documentacion: React.FC<Props> = ({
         {showSanipes && (
           <div className={`${classes.docItem} ${classes.docLabelScope}`}>
             <DocCard
-              title="Sanipes"
-              dateLabel="Fecha de resolución de incidente"
+              title="SANIPES"
+              dateLabel="Fecha de resolución de expediente"
               dateValue={normalizeDateOut(doc.SanipesDate)}
               onDateChange={handleDateChange("SanipesDate")}
               textLabel="N° de expediente"
               textValue={doc.SanipesText ?? ""}
               onTextChange={(v) => set("SanipesText")(String(v ?? ""))}
               file={normalizeFileOut(doc.sanipesFile)}
-              onFileChange={handleFileChange("sanipesFile")}
+              onFileChange={handleFileChange(
+                "sanipesFile",
+                "SANIPES"
+              )}
             />
           </div>
         )}
@@ -283,7 +304,10 @@ export const Documentacion: React.FC<Props> = ({
               dateValue={normalizeDateOut(doc.termokingDate)}
               onDateChange={handleDateChange("termokingDate")}
               file={normalizeFileOut(doc.termokingFile)}
-              onFileChange={handleFileChange("termokingFile")}
+              onFileChange={handleFileChange(
+                "termokingFile",
+                "Certificado de mantenimiento de termoking"
+              )}
             />
           </div>
         )}
@@ -297,7 +321,10 @@ export const Documentacion: React.FC<Props> = ({
               dateValue={normalizeDateOut(doc.limpiezaDate)}
               onDateChange={handleDateChange("limpiezaDate")}
               file={normalizeFileOut(doc.limpiezaFile)}
-              onFileChange={handleFileChange("limpiezaFile")}
+              onFileChange={handleFileChange(
+                "limpiezaFile",
+                "Limpieza y desinfección"
+              )}
             />
           </div>
         )}

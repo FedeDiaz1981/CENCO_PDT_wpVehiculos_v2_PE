@@ -14,6 +14,8 @@ import { initSP } from '../../pnp';
 export interface IRegistroVehicularWebPartProps {
   Proveedor: boolean;
   Transportista: boolean;
+  // NUEVO: define si "Dar de baja" borra o solo desactiva
+  Borrar: boolean;
 }
 
 export default class RegistroVehicularWebPart
@@ -32,7 +34,10 @@ export default class RegistroVehicularWebPart
       Proveedor: this.properties.Proveedor ?? false,
       Distribuidor: false,
       Coordinador: false,
-      Transportista: this.properties.Transportista ?? false
+      Transportista: this.properties.Transportista ?? false,
+
+      // pasa la config al componente React
+      Borrar: this.properties.Borrar ?? false
     };
 
     const element = React.createElement(
@@ -42,7 +47,6 @@ export default class RegistroVehicularWebPart
 
     ReactDom.render(element, this.domElement);
   }
-
 
   protected onInit(): Promise<void> {
     initSP(this.context);
@@ -57,7 +61,7 @@ export default class RegistroVehicularWebPart
     return Version.parse('1.0');
   }
 
-  // Panel de propiedades (Property Pane): ahora con Proveedor y Transportista
+  // Panel de propiedades (Property Pane)
   protected getPropertyPaneConfiguration(): IPropertyPaneConfiguration {
     return {
       pages: [
@@ -80,6 +84,17 @@ export default class RegistroVehicularWebPart
                   onText: 'Sí',
                   offText: 'No',
                   checked: this.properties.Transportista
+                })
+              ]
+            },
+            {
+              groupName: 'Comportamiento de baja',
+              groupFields: [
+                PropertyPaneToggle('Borrar', {
+                  label: 'Al dar de baja, borrar registro (en vez de marcar inactivo)',
+                  onText: 'Borrar registro',
+                  offText: 'Marcar Activo = false',
+                  checked: this.properties.Borrar
                 })
               ]
             }

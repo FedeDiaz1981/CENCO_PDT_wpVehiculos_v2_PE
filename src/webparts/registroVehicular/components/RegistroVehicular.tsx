@@ -269,19 +269,21 @@ const DocumentacionLiteLocal: React.FC<{
       <Separator />
 
       <div className={classes.docsGrid}>
+        {/* Tarjeta de propiedad (OBLIGATORIO) */}
         <div className={`${classes.docItem} ${classes.docLabelScope}`}>
           <DocCard
-            title="Tarjeta de propiedad"
+            title="Tarjeta de propiedad *"
             file={fileOut(doc.propFile)}
             existingFileName={getExistingName(doc.propFile)}
             onFileChange={disabled ? undefined : (f) => setField("propFile")(f)}
           />
         </div>
 
+        {/* Resolución de bonificación (OBLIGATORIO cuando se muestra) */}
         {showResBonificacion && (
           <div className={`${classes.docItem} ${classes.docLabelScope}`}>
             <DocCard
-              title="Resolución de bonificación"
+              title="Resolución de bonificación *"
               file={fileOut(doc.resBonificacionFile)}
               existingFileName={
                 typeof doc.resBonificacionFile === "string"
@@ -295,11 +297,12 @@ const DocumentacionLiteLocal: React.FC<{
           </div>
         )}
 
+        {/* Certificado de fumigación (OBLIGATORIO cuando se muestra) */}
         {showFumigacion && (
           <div className={`${classes.docItem} ${classes.docLabelScope}`}>
             <DocCard
-              title="Certificado de fumigación"
-              dateLabel="Fecha de emisión"
+              title="Certificado de fumigación *"
+              dateLabel="Fecha de emisión *"
               dateValue={doc.fumigacionDate || ""}
               onDateChange={
                 disabled
@@ -319,17 +322,18 @@ const DocumentacionLiteLocal: React.FC<{
           </div>
         )}
 
+        {/* Revisión técnica (OBLIGATORIO) */}
         <div className={`${classes.docItem} ${classes.docLabelScope}`}>
           <DocCard
-            title="Revisión técnica"
-            dateLabel="Fecha de vencimiento"
+            title="Revisión técnica *"
+            dateLabel="Fecha de vencimiento *"
             dateValue={doc.revTecDate || ""}
             onDateChange={
               disabled
                 ? undefined
                 : (value) => setField("revTecDate")(value || "")
             }
-            textLabel="Año de fabricación"
+            textLabel="Año de fabricación *"
             textValue={doc.revTecText ?? ""}
             onTextChange={
               disabled
@@ -348,11 +352,12 @@ const DocumentacionLiteLocal: React.FC<{
           />
         </div>
 
+        {/* SANIPES (NO obligatorio) */}
         {showSanipes && (
           <div className={`${classes.docItem} ${classes.docLabelScope}`}>
             <DocCard
-              title="Sanipes"
-              dateLabel="Fecha de resolución de incidente"
+              title="SANIPES"
+              dateLabel="Fecha de resolución de expediente"
               dateValue={doc.SanipesDate || ""}
               onDateChange={
                 disabled
@@ -379,11 +384,12 @@ const DocumentacionLiteLocal: React.FC<{
           </div>
         )}
 
+        {/* Termoking (OBLIGATORIO cuando se muestra) */}
         {showTermoking && (
           <div className={`${classes.docItem} ${classes.docLabelScope}`}>
             <DocCard
-              title="Certificado de mantenimiento de termoking"
-              dateLabel="Fecha de emisión"
+              title="Certificado de mantenimiento de termoking *"
+              dateLabel="Fecha de emisión *"
               dateValue={doc.termokingDate || ""}
               onDateChange={
                 disabled
@@ -403,11 +409,12 @@ const DocumentacionLiteLocal: React.FC<{
           </div>
         )}
 
+        {/* Limpieza y desinfección (OBLIGATORIO cuando se muestra) */}
         {showLimpieza && (
           <div className={`${classes.docItem} ${classes.docLabelScope}`}>
             <DocCard
-              title="Limpieza y desinfección"
-              dateLabel="Fecha de emisión"
+              title="Limpieza y desinfección *"
+              dateLabel="Fecha de emisión *"
               dateValue={doc.limpiezaDate || ""}
               onDateChange={
                 disabled
@@ -430,6 +437,7 @@ const DocumentacionLiteLocal: React.FC<{
     </div>
   );
 };
+
 
 const Notificaciones: React.FC<{
   vehiculo: any;
@@ -504,8 +512,12 @@ const RegistroVehicular: React.FC<{
   Distribuidor: boolean;
   Coordinador: boolean;
   Transportista?: boolean;
+  // true  => borra registro
+  // false => marca Activo = false
+  Borrar?: boolean;
 }> = (_props) => {
-  const { spContext, Proveedor, Transportista, proveedoresList } = _props;
+  const { spContext, Proveedor, Transportista, proveedoresList, Borrar } =
+    _props;
 
   const sp = React.useMemo<SPFI>(() => {
     return spfi().using(SPFx(spContext));
@@ -550,15 +562,17 @@ const RegistroVehicular: React.FC<{
   });
 
   const [fechaError, setFechaError] = React.useState<string | null>(null);
+  const [validationError, setValidationError] = React.useState<string | null>(
+    null
+  );
 
-  // ⬇⬇ VALIDACIONES nuevas (rev técnica y fumigación) + las que ya estaban
+  // Validaciones de fechas (se calculan, pero luego se ignoran en modo baja)
   React.useEffect(() => {
     const hoy = new Date();
     hoy.setHours(0, 0, 0, 0);
 
     let errorMsg: string | null = null;
 
-    // 1) Revisión técnica: vencimiento no puede ser pasado
     if (doc.revTecDate) {
       const rev = new Date(doc.revTecDate);
       rev.setHours(0, 0, 0, 0);
@@ -568,7 +582,6 @@ const RegistroVehicular: React.FC<{
       }
     }
 
-    // 2) Fumigación: no más de 6 meses de antigüedad
     if (!errorMsg && doc.fumigacionDate) {
       const fum = new Date(doc.fumigacionDate);
       fum.setHours(0, 0, 0, 0);
@@ -581,7 +594,6 @@ const RegistroVehicular: React.FC<{
       }
     }
 
-    // 3) Termoking: ya estaba a 6 meses
     if (!errorMsg && doc.termokingDate) {
       const termoking = new Date(doc.termokingDate);
       termoking.setHours(0, 0, 0, 0);
@@ -594,7 +606,6 @@ const RegistroVehicular: React.FC<{
       }
     }
 
-    // 4) Limpieza: 31 días
     if (!errorMsg && doc.limpiezaDate) {
       const limpieza = new Date(doc.limpiezaDate);
       limpieza.setHours(0, 0, 0, 0);
@@ -692,6 +703,7 @@ const RegistroVehicular: React.FC<{
     setVehiculo(baseVeh);
     setDoc({ ...docinicial });
     setSelectedVehiculo(null);
+    setValidationError(null);
   };
 
   const choices = {
@@ -736,25 +748,112 @@ const RegistroVehicular: React.FC<{
   }
 
   const onGuardar = React.useCallback(async () => {
+    // SI LA ACCIÓN ES "baja", NO VALIDAMOS CAMPOS NI FECHAS
+    if (accion === "baja") {
+      // Pedimos motivo y no dejamos continuar si está vacío
+      let motivo: string | null = "";
+      while (true) {
+        motivo = window.prompt("Motivo de la baja:", motivo || "");
+        if (motivo === null) {
+          // usuario canceló -> no hacemos nada
+          return;
+        }
+        if (motivo.trim()) {
+          motivo = motivo.trim();
+          break;
+        }
+        alert(
+          "Tenés que ingresar un motivo para poder dar de baja el vehículo."
+        );
+      }
+
+      try {
+        setBusy(true);
+        const placa = (vehiculo.Placa || "").trim();
+        const vehList = sp.web.lists.getByTitle(LISTS.Vehiculos);
+
+        if (Borrar) {
+          // Primero guardamos el motivo en el registro, luego borramos
+          if (vehiculo.Id) {
+            await vehList.items.getById(vehiculo.Id).update({
+              motivobaja: motivo,
+            });
+          }
+
+          await deleteVehiculoYCertificados(sp, placa);
+          alert("Vehículo y certificados eliminados correctamente.");
+        } else {
+          if (!vehiculo.Id) {
+            alert("No se encontró el Id del vehículo para dar de baja.");
+          } else {
+            await vehList.items.getById(vehiculo.Id).update({
+              [VEH_FIELDS.Activo]: false,
+              motivobaja: motivo,
+            });
+            alert("Vehículo dado de baja (marcado como inactivo).");
+          }
+        }
+      } catch (err) {
+        console.error("Error al dar de baja el vehículo", err);
+        alert("Error al dar de baja el vehículo. Revisá consola.");
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
+
+    // Validación de campos obligatorios (crear / actualizar)
+    const errores: string[] = [];
+    const req = (value: any, label: string) => {
+      if (
+        value === undefined ||
+        value === null ||
+        String(value).trim() === ""
+      ) {
+        errores.push(label);
+      }
+    };
+
+    req(vehiculo.Placa, "Placa");
+    req(vehiculo.SOAT, "SOAT");
+    req(vehiculo.Codigo || vehiculo.CodigoInterno, "Código de unidad");
+    req(vehiculo.Capacidad, "Capacidad");
+    req(vehiculo.MedidasInternas, "Medida interna");
+    req(vehiculo.MedidasExternas, "Medida externa");
+    req(vehiculo.AlturaPiso, "Altura de piso");
+    req(vehiculo.PesoCargaUtil, "Peso útil");
+    req(vehiculo.PesoNeto, "Peso bruto");
+
+    if (
+      vehiculo.Capacidad &&
+      vehiculo.Capacidad.toLowerCase().includes("otro")
+    ) {
+      req(vehiculo.Otros, "Capacidad otros");
+    }
+
+    if (vehiculo.Rampa) {
+      req(vehiculo.LargoRampa, "Largo de rampa");
+      req(vehiculo.AnchoRampa, "Ancho de rampa");
+    }
+
+    if (errores.length > 0) {
+      setValidationError(
+        "Completá los campos obligatorios: " + errores.join(", ")
+      );
+      return;
+    } else {
+      setValidationError(null);
+    }
+
     try {
       setBusy(true);
 
       const placa = (vehiculo.Placa || "").trim();
-      if (!placa) {
-        alert("La placa es obligatoria.");
-        return;
-      }
-
-      if (accion === "baja") {
-        await deleteVehiculoYCertificados(sp, placa);
-        alert("Vehículo y certificados eliminados correctamente.");
-        return;
-      }
 
       const item: Record<string, any> = {
         [VEH_FIELDS.Title]: vehiculo.Placa || "",
         [VEH_FIELDS.SOAT]: vehiculo.SOAT || "",
-        [VEH_FIELDS.Codigo]: vehiculo.Codigo || "",
+        [VEH_FIELDS.Codigo]: vehiculo.CodigoInterno || "",
         [VEH_FIELDS.Marca]: vehiculo.Marca || "",
         [VEH_FIELDS.Modelo]: vehiculo.Modelo || "",
         [VEH_FIELDS.Capacidad]: vehiculo.Capacidad || "",
@@ -802,7 +901,7 @@ const RegistroVehicular: React.FC<{
     } finally {
       setBusy(false);
     }
-  }, [accion, vehiculo, doc, docsFlags, sp]);
+  }, [accion, vehiculo, doc, docsFlags, sp, Borrar]);
 
   const onCancelar = React.useCallback(() => {
     window.location.reload();
@@ -938,10 +1037,19 @@ const RegistroVehicular: React.FC<{
         alert("No se pudo cargar la documentación de este vehículo.");
       }
 
-      setModo("MODIFICAR");
-      setAccion("actualizar");
+      // acá la diferencia:
+      if (accion === "baja") {
+        setModo("BAJA");
+        setAccion("baja");
+      } else {
+        setModo("MODIFICAR");
+        setAccion("actualizar");
+      }
+
+      setValidationError(null);
     },
     [
+      accion,
       setSelectedVehiculo,
       setVehiculo,
       setCertificadosVehiculo,
@@ -984,8 +1092,15 @@ const RegistroVehicular: React.FC<{
         )
         .expand(VEH_FIELDS.Proveedor);
 
+      // Filtros: sólo activos y, si aplica, por proveedor del usuario
+      const filtros: string[] = [`${VEH_FIELDS.Activo} eq 1`];
+
       if ((Proveedor || Transportista) && empresaUsuarioId) {
-        req = req.filter(`${VEH_FIELDS.Proveedor}/Id eq ${empresaUsuarioId}`);
+        filtros.push(`${VEH_FIELDS.Proveedor}/Id eq ${empresaUsuarioId}`);
+      }
+
+      if (filtros.length > 0) {
+        req = req.filter(filtros.join(" and "));
       }
 
       const items = (await req.top(500)()) as Array<{
@@ -1060,20 +1175,21 @@ const RegistroVehicular: React.FC<{
     }
   }, [sp, _setVehiculos, Proveedor, Transportista, empresaUsuarioId]);
 
-  // campos bloqueados en modificar
+  // >>> CAMBIO AQUÍ: lista base + condición que incluye Transportista en crear <<<
+  const baseLockedFields = [
+    "Empresa",
+    "EmpresaId",
+    "Placa",
+    "Title",
+    "Marca",
+    "Modelo",
+    "Codigo",
+    "CodigoInterno",
+  ];
+
   const lockedFields =
-    accion === "actualizar"
-      ? [
-          "Empresa",
-          "EmpresaId",
-          "Placa",
-          "Title",
-          "Marca",
-          "Modelo",
-          "Codigo",
-          "CodigoInterno",
-        ]
-      : [];
+    accion === "actualizar" || !!Transportista ? baseLockedFields : [];
+  // <<< FIN DE CAMBIO >>>
 
   return (
     <ThemeProvider theme={theme}>
@@ -1114,7 +1230,7 @@ const RegistroVehicular: React.FC<{
             />
           </div>
 
-          {(modo === "MODIFICAR" || modo === "BAJA") && (
+          {accion !== "crear" && (modo === "MODIFICAR" || modo === "BAJA") && (
             <VehiculosGrid
               vehiculos={vehiculos}
               onRowDoubleClick={handleRowDoubleClick}
@@ -1125,7 +1241,17 @@ const RegistroVehicular: React.FC<{
             vehiculo={vehiculo}
             setVehiculo={setVehiculo}
             disabled={busy || accion === "baja"}
-            required={{}}
+            required={{
+              Placa: true,
+              SOAT: true,
+              CodigoInterno: true,
+              Capacidad: true,
+              MedidasInternas: true,
+              MedidasExternas: true,
+              AlturaPiso: true,
+              PesoCargaUtil: true,
+              PesoNeto: true,
+            }}
             isChoice={(n: string) =>
               ["Temperatura", "TipoTemperatura", "TipoUnidad"].includes(n)
             }
@@ -1136,12 +1262,6 @@ const RegistroVehicular: React.FC<{
             empresaBloqueada={empresaBloqueada}
             bonificacionBloqueada={!!Transportista}
             lockedFields={lockedFields}
-          />
-
-          <Notificaciones
-            vehiculo={vehiculo}
-            setVehiculo={setVehiculo}
-            disabled={busy || accion === "baja"}
           />
 
           <DocumentacionLiteLocal
@@ -1155,9 +1275,21 @@ const RegistroVehicular: React.FC<{
             disabled={!!Transportista}
           />
 
-          {fechaError && (
+          <Notificaciones
+            vehiculo={vehiculo}
+            setVehiculo={setVehiculo}
+            disabled={busy || accion === "baja"}
+          />
+
+          {fechaError && accion !== "baja" && (
             <div style={{ color: "red", marginTop: 12, fontWeight: 600 }}>
               {fechaError}
+            </div>
+          )}
+
+          {validationError && accion !== "baja" && (
+            <div style={{ color: "red", marginTop: 8, fontWeight: 600 }}>
+              {validationError}
             </div>
           )}
 
@@ -1171,7 +1303,10 @@ const RegistroVehicular: React.FC<{
                   : "GUARDAR"
               }
               onClick={onGuardar}
-              disabled={busy || !!fechaError}
+              disabled={
+                busy ||
+                (accion !== "baja" && (!!fechaError || !!validationError))
+              }
             />
             <DefaultButton
               text="Cancelar"

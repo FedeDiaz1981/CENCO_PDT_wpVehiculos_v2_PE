@@ -6,4 +6,5 @@ export interface IRegistroVehicularProps {
   Proveedor: boolean;
   Distribuidor: boolean;
   Coordinador: boolean;
+  Borrar: boolean;
 }

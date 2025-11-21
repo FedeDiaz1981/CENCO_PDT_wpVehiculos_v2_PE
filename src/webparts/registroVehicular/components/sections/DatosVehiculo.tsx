@@ -75,10 +75,8 @@ const DatosVehiculo: React.FC<{
   isNumber: (n: string) => boolean;
   choices: Record<string, IDropdownOption[]>;
   lookups: Record<string, IDropdownOption[]>;
-  // 👇 ya estaba
   empresaBloqueada?: boolean;
   bonificacionBloqueada?: boolean;
-  // 👇 nuevo: campos que vienen bloqueados desde el padre (modo modificar)
   lockedFields?: string[];
 }> = ({
   vehiculo = {},
@@ -98,13 +96,11 @@ const DatosVehiculo: React.FC<{
 
   const [isAlturaModalOpen, setIsAlturaModalOpen] = React.useState(false);
 
-  // helper para saber si este campo viene bloqueado desde arriba
   const isLocked = React.useCallback(
     (name: string) => lockedFields?.includes(name),
     [lockedFields]
   );
 
-  // setter genérico para <TextField />
   const setText =
     (key: keyof VehiculoExt) =>
     (
@@ -122,7 +118,6 @@ const DatosVehiculo: React.FC<{
     return PROVEEDORES_CATALOG.find((p) => p.id === safeVehiculo.EmpresaId);
   }, [safeVehiculo.EmpresaId]);
 
-  // setter genérico para dropdown dinámico (usa key de la opción)
   const setChoiceFromList =
     (key: keyof VehiculoExt) =>
     (_ev: React.FormEvent<HTMLDivElement>, opt?: IDropdownOption) => {
@@ -141,20 +136,18 @@ const DatosVehiculo: React.FC<{
       }));
     };
 
-  // mostrar campo libre "Especifique capacidad" si Capacidad = "otro"
   const isCapacidadOtro = React.useMemo(() => {
     const cap = normalizar(safeVehiculo.Capacidad);
     return cap === "otro";
   }, [safeVehiculo.Capacidad]);
 
-  // Mostrar "Tipo temperatura" sólo si Temperatura es "Con temperatura"
   const showTipoTemperatura =
     (safeVehiculo.Temperatura || "").toLowerCase() === "con temperatura";
 
   const EMPRESA_OPTIONS: IDropdownOption[] = React.useMemo(() => {
     return PROVEEDORES_CATALOG.map((p) => ({
-      key: p.id, // ID del proveedor en la lista Proveedores
-      text: p.title, // texto visible
+      key: p.id,
+      text: p.title,
     }));
   }, []);
 
@@ -167,8 +160,8 @@ const DatosVehiculo: React.FC<{
 
     setVehiculo((s) => ({
       ...(s || {}),
-      EmpresaId: proveedorId, // para el lookup Proveedor en SharePoint
-      Empresa: proveedor ? proveedor.title : "", // texto para UI, opcional
+      EmpresaId: proveedorId,
+      Empresa: proveedor ? proveedor.title : "",
     }));
   };
 
@@ -184,13 +177,12 @@ const DatosVehiculo: React.FC<{
       {/* Empresa */}
       <div className={classes.grid3}>
         <div className={classes.fieldCell}>
-          <div className={classes.fieldLabel}>Empresa</div>
+          <div className={classes.fieldLabel}>Empresa *</div>
           <Dropdown
             placeholder="Seleccione..."
             options={EMPRESA_OPTIONS}
-            selectedKey={safeVehiculo.EmpresaId || undefined} // usamos el ID guardado
+            selectedKey={safeVehiculo.EmpresaId || undefined}
             onChange={onEmpresaChange}
-            // 👇 queda bloqueada si: está deshabilitado el form, o venía bloqueada por rol, o vino en lockedFields
             disabled={
               disabled ||
               empresaBloqueada ||
@@ -213,7 +205,7 @@ const DatosVehiculo: React.FC<{
       <div className={classes.grid3}>
         {/* Temperatura */}
         <div className={classes.fieldCell}>
-          <div className={classes.fieldLabel}>Temperatura</div>
+          <div className={classes.fieldLabel}>Temperatura *</div>
           <Dropdown
             placeholder="Seleccione..."
             options={choices["Temperatura"] || []}
@@ -226,7 +218,7 @@ const DatosVehiculo: React.FC<{
         {/* Tipo temperatura (solo si aplica) */}
         {showTipoTemperatura && (
           <div className={classes.fieldCell}>
-            <div className={classes.fieldLabel}>Tipo temperatura</div>
+            <div className={classes.fieldLabel}>Tipo temperatura *</div>
             <Dropdown
               placeholder="Seleccione..."
               options={choices["TipoTemperatura"] || []}
@@ -239,7 +231,7 @@ const DatosVehiculo: React.FC<{
 
         {/* Tipo de unidad */}
         <div className={classes.fieldCell}>
-          <div className={classes.fieldLabel}>Tipo de unidad</div>
+          <div className={classes.fieldLabel}>Tipo de unidad *</div>
           <Dropdown
             placeholder="Seleccione..."
             options={choices["TipoUnidad"] || []}
@@ -253,25 +245,23 @@ const DatosVehiculo: React.FC<{
       {/* Placa / SOAT / Código de unidad */}
       <div className={classes.grid3}>
         <TextField
-          label="Placa"
+          label="Placa *"
           value={safeVehiculo.Placa || ""}
           onChange={setText("Placa")}
-          // 👇 bloquea si viene en lockedFields (Placa o Title)
           disabled={disabled || isLocked("Placa") || isLocked("Title")}
         />
 
         <TextField
-          label="SOAT"
+          label="SOAT *"
           value={safeVehiculo.SOAT || ""}
           onChange={setText("SOAT")}
           disabled={disabled}
         />
 
         <TextField
-          label="Código de unidad"
+          label="Código de unidad *"
           value={safeVehiculo.Codigo || ""}
           onChange={setText("Codigo")}
-          // 👇 bloquea si viene en lockedFields como Codigo o CodigoInterno
           disabled={
             disabled || isLocked("Codigo") || isLocked("CodigoInterno")
           }
@@ -281,14 +271,14 @@ const DatosVehiculo: React.FC<{
       {/* Marca / Modelo */}
       <div className={classes.grid3}>
         <TextField
-          label="Marca"
+          label="Marca *"
           value={safeVehiculo.Marca || ""}
           onChange={setText("Marca")}
           disabled={disabled || isLocked("Marca")}
         />
 
         <TextField
-          label="Modelo"
+          label="Modelo *"
           value={safeVehiculo.Modelo || ""}
           onChange={setText("Modelo")}
           disabled={disabled || isLocked("Modelo")}
@@ -300,7 +290,7 @@ const DatosVehiculo: React.FC<{
       {/* Capacidad + "Especifique capacidad" si Capacidad = otro */}
       <div className={classes.grid3}>
         <div className={classes.fieldCell}>
-          <div className={classes.fieldLabel}>Capacidad</div>
+          <div className={classes.fieldLabel}>Capacidad *</div>
           <Dropdown
             placeholder="Seleccione..."
             options={CAPACIDAD_OPTIONS}
@@ -313,7 +303,7 @@ const DatosVehiculo: React.FC<{
         {isCapacidadOtro && (
           <div className={classes.fieldCell}>
             <TextField
-              label="Especifique capacidad"
+              label="Especifique capacidad *"
               value={safeVehiculo.Otros || ""}
               onChange={setText("Otros")}
               disabled={disabled}
@@ -327,7 +317,7 @@ const DatosVehiculo: React.FC<{
       {/* Rampa / Largo rampa / Ancho rampa */}
       <div className={classes.grid3}>
         <div className={classes.fieldCell}>
-          <div className={classes.fieldLabel}>Rampa</div>
+          <div className={classes.fieldLabel}>Rampa *</div>
           <Toggle
             checked={!!safeVehiculo.Rampa}
             onChange={(_e, c) =>
@@ -343,13 +333,13 @@ const DatosVehiculo: React.FC<{
         {safeVehiculo.Rampa && (
           <>
             <TextField
-              label="Largo rampa"
+              label="Largo rampa *"
               value={safeVehiculo.LargoRampa || ""}
               onChange={setText("LargoRampa")}
               disabled={disabled}
             />
             <TextField
-              label="Ancho rampa"
+              label="Ancho rampa *"
               value={safeVehiculo.AnchoRampa || ""}
               onChange={setText("AnchoRampa")}
               disabled={disabled}
@@ -361,7 +351,7 @@ const DatosVehiculo: React.FC<{
       {/* Bonificación / N° de resolución */}
       <div className={classes.grid3}>
         <div className={classes.fieldCell}>
-          <div className={classes.fieldLabel}>Bonificación</div>
+          <div className={classes.fieldLabel}>Bonificación *</div>
           <Toggle
             checked={!!safeVehiculo.Bonificacion}
             onChange={(_e, c) =>
@@ -376,7 +366,7 @@ const DatosVehiculo: React.FC<{
 
         {safeVehiculo.Bonificacion && (
           <TextField
-            label="N° de resolución"
+            label="N° de resolución *"
             value={safeVehiculo.NroResolucion || ""}
             onChange={setText("NroResolucion")}
             disabled={disabled || bonificacionBloqueada}
@@ -389,14 +379,14 @@ const DatosVehiculo: React.FC<{
       {/* Medidas internas / externas */}
       <div className={classes.grid3}>
         <TextField
-          label="Medidas internas"
+          label="Medidas internas *"
           value={safeVehiculo.MedidasInternas || ""}
           onChange={setText("MedidasInternas")}
           disabled={disabled}
         />
 
         <TextField
-          label="Medidas externas"
+          label="Medidas externas *"
           value={safeVehiculo.MedidasExternas || ""}
           onChange={setText("MedidasExternas")}
           disabled={disabled}
@@ -413,7 +403,7 @@ const DatosVehiculo: React.FC<{
               className={classes.fieldLabel}
               style={{ display: "flex", alignItems: "center", gap: 6 }}
             >
-              <span>Altura del piso</span>
+              <span>Altura del piso *</span>
               <IconButton
                 iconProps={{ iconName: "Info" }}
                 title="Ver referencia"
@@ -435,7 +425,7 @@ const DatosVehiculo: React.FC<{
       {/* Pesos */}
       <div className={classes.grid3}>
         <TextField
-          label="Peso carga útil"
+          label="Peso carga útil *"
           value={safeVehiculo.PesoCargaUtil || ""}
           type={isNumber("pesocargautil") ? "number" : "text"}
           onChange={setText("PesoCargaUtil")}
@@ -443,7 +433,7 @@ const DatosVehiculo: React.FC<{
         />
 
         <TextField
-          label="Peso bruto"
+          label="Peso bruto *"
           value={safeVehiculo.PesoNeto || ""}
           type={isNumber("pesobruto") ? "number" : "text"}
           onChange={setText("PesoNeto")}
