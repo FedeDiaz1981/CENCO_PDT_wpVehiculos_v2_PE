@@ -12,9 +12,15 @@ import { initSP } from '../../pnp';
 
 // Props configurables desde el panel del webpart
 export interface IRegistroVehicularWebPartProps {
+  vehiculosListTitle: string;
+  proveedoresList: string;
+  proveedoresDisplayField: string;
+  proveedoresUserField: string;
+
   Proveedor: boolean;
+  Distribuidor: boolean;
+  Coordinador: boolean;
   Transportista: boolean;
-  // NUEVO: define si "Dar de baja" borra o solo desactiva
   Borrar: boolean;
 }
 
@@ -22,7 +28,7 @@ export default class RegistroVehicularWebPart
   extends BaseClientSideWebPart<IRegistroVehicularWebPartProps> {
 
   public render(): void {
-
+    console.log("Render");
     const componentProps: any = {
       spContext: this.context,
 
@@ -30,7 +36,7 @@ export default class RegistroVehicularWebPart
       proveedoresList: 'Proveedores',
       proveedoresDisplayField: 'Title',
       proveedoresUserField: 'Usuarios',
-
+      
       Proveedor: this.properties.Proveedor ?? false,
       Distribuidor: false,
       Coordinador: false,

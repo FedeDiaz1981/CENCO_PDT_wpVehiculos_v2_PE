@@ -39,6 +39,7 @@ export async function getEmpresaForCurrentUser(
     const me = await SP().web.currentUser();
     const meId = me?.Id;
     const emailSafe = safe((me?.Email || "").toLowerCase());
+    console.log("Tomando usuarios");
 
     const r1: any[] = await SP()
       .web.lists.getByTitle(listName)

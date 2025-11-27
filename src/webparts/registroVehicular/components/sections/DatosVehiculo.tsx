@@ -11,7 +11,11 @@ import {
 } from "@fluentui/react";
 
 import { classes } from "../../ui/styles";
-import { PROVEEDORES_CATALOG } from "../../data/proveedoresCatalog"; // ruta correcta según tu árbol
+// CAMBIO: usamos la función que lee de la lista
+import {
+  getProveedoresCatalogFromList,
+  ProveedorInfo,
+} from "../../data/proveedoresCatalog";
 
 type VehiculoExt = {
   Empresa?: string;
@@ -78,6 +82,9 @@ const DatosVehiculo: React.FC<{
   empresaBloqueada?: boolean;
   bonificacionBloqueada?: boolean;
   lockedFields?: string[];
+  proveedoresList?: string;
+  proveedoresDisplayField?: string;
+  proveedoresUserField?: string;
 }> = ({
   vehiculo = {},
   setVehiculo,
@@ -91,10 +98,31 @@ const DatosVehiculo: React.FC<{
   empresaBloqueada = false,
   bonificacionBloqueada = false,
   lockedFields = [],
+  proveedoresList,
+  proveedoresDisplayField,
+  proveedoresUserField,
 }) => {
   const safeVehiculo: VehiculoExt = vehiculo || {};
 
   const [isAlturaModalOpen, setIsAlturaModalOpen] = React.useState(false);
+
+  // NUEVO: proveedores leídos de la lista
+  const [proveedores, setProveedores] = React.useState<ProveedorInfo[]>([]);
+
+  React.useEffect(() => {
+    const run = async () => {
+      try {
+        const rows = await getProveedoresCatalogFromList(
+          proveedoresList || "Proveedores"
+        );
+        setProveedores(rows);
+      } catch (e) {
+        console.error("Error cargando proveedores", e);
+        setProveedores([]);
+      }
+    };
+    void run();
+  }, [proveedoresList]);
 
   const isLocked = React.useCallback(
     (name: string) => lockedFields?.includes(name),
@@ -115,8 +143,8 @@ const DatosVehiculo: React.FC<{
 
   const proveedorActual = React.useMemo(() => {
     if (!safeVehiculo.EmpresaId) return undefined;
-    return PROVEEDORES_CATALOG.find((p) => p.id === safeVehiculo.EmpresaId);
-  }, [safeVehiculo.EmpresaId]);
+    return proveedores.find((p) => p.id === safeVehiculo.EmpresaId);
+  }, [safeVehiculo.EmpresaId, proveedores]);
 
   const setChoiceFromList =
     (key: keyof VehiculoExt) =>
@@ -145,18 +173,18 @@ const DatosVehiculo: React.FC<{
     (safeVehiculo.Temperatura || "").toLowerCase() === "con temperatura";
 
   const EMPRESA_OPTIONS: IDropdownOption[] = React.useMemo(() => {
-    return PROVEEDORES_CATALOG.map((p) => ({
+    return proveedores.map((p) => ({
       key: p.id,
       text: p.title,
     }));
-  }, []);
+  }, [proveedores]);
 
   const onEmpresaChange = (
     _ev: React.FormEvent<HTMLDivElement>,
     opt?: IDropdownOption
   ) => {
     const proveedorId = opt ? (opt.key as number) : undefined;
-    const proveedor = PROVEEDORES_CATALOG.find((p) => p.id === proveedorId);
+    const proveedor = proveedores.find((p) => p.id === proveedorId);
 
     setVehiculo((s) => ({
       ...(s || {}),

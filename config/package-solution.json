@@ -3,7 +3,7 @@
   "solution": {
     "name": "wp-registros-vehicular-2-client-side-solution",
     "id": "bab95f9b-cff3-4f99-a786-e92524ca24aa",
-    "version": "6.0.0.0",
+    "version": "7.0.0.0",
     "includeClientSideAssets": true,
     "skipFeatureDeployment": true,
     "isDomainIsolated": false,

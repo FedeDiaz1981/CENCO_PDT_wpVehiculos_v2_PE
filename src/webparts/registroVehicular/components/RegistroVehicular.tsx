@@ -25,6 +25,7 @@ import {
   deleteCertificadosPorPlaca,
 } from "../services/certificados.service";
 import { IVehiculoItem } from "../services/vehiculos.service";
+import { getEmpresaForCurrentUser } from "../services/proveedores.service";
 
 type IVehiculoItemFull = IVehiculoItem & {
   Placa?: string;
@@ -438,7 +439,6 @@ const DocumentacionLiteLocal: React.FC<{
   );
 };
 
-
 const Notificaciones: React.FC<{
   vehiculo: any;
   setVehiculo: React.Dispatch<React.SetStateAction<any>>;
@@ -516,8 +516,15 @@ const RegistroVehicular: React.FC<{
   // false => marca Activo = false
   Borrar?: boolean;
 }> = (_props) => {
-  const { spContext, Proveedor, Transportista, proveedoresList, Borrar } =
-    _props;
+  const {
+    spContext,
+    Proveedor,
+    Transportista,
+    proveedoresList,
+    proveedoresDisplayField,
+    proveedoresUserField,
+    Borrar,
+  } = _props;
 
   const sp = React.useMemo<SPFI>(() => {
     return spfi().using(SPFx(spContext));
@@ -620,6 +627,7 @@ const RegistroVehicular: React.FC<{
     setFechaError(errorMsg);
   }, [doc.revTecDate, doc.fumigacionDate, doc.termokingDate, doc.limpiezaDate]);
 
+  // Resolución automática de Empresa cuando el usuario es Proveedor/Transportista
   React.useEffect(() => {
     const run = async () => {
       const debeForzar = Proveedor || Transportista;
@@ -630,22 +638,20 @@ const RegistroVehicular: React.FC<{
       }
 
       try {
-        const currentUser = await sp.web.currentUser();
-        const items = await sp.web.lists
-          .getByTitle(proveedoresList || "Proveedores")
-          .items.select("Id", "Title", "Usuarios/Id")
-          .expand("Usuarios")
-          .filter(`Usuarios/Id eq ${currentUser.Id}`)();
+        const { empresaTitle, proveedorId } = await getEmpresaForCurrentUser({
+          listName: proveedoresList || "Proveedores",
+          displayCol: proveedoresDisplayField || "Title",
+          userCol: proveedoresUserField || "Usuarios",
+        });
 
-        if (items && items.length > 0) {
-          const prov = items[0];
+        if (proveedorId && empresaTitle) {
           setVehiculo((prev) => ({
             ...prev,
-            EmpresaId: prov.Id,
-            Empresa: prov.Title,
+            EmpresaId: proveedorId,
+            Empresa: empresaTitle,
           }));
           setEmpresaBloqueada(true);
-          setEmpresaUsuarioId(prov.Id);
+          setEmpresaUsuarioId(proveedorId);
         } else {
           setEmpresaBloqueada(false);
           setEmpresaUsuarioId(null);
@@ -658,7 +664,13 @@ const RegistroVehicular: React.FC<{
     };
 
     void run();
-  }, [Proveedor, Transportista, proveedoresList, sp]);
+  }, [
+    Proveedor,
+    Transportista,
+    proveedoresList,
+    proveedoresDisplayField,
+    proveedoresUserField,
+  ]);
 
   const onIngresarClick = () => {
     setAccion("crear");
@@ -1262,6 +1274,9 @@ const RegistroVehicular: React.FC<{
             empresaBloqueada={empresaBloqueada}
             bonificacionBloqueada={!!Transportista}
             lockedFields={lockedFields}
+            proveedoresList={proveedoresList}
+            proveedoresDisplayField={proveedoresDisplayField}
+            proveedoresUserField={proveedoresUserField}
           />
 
           <DocumentacionLiteLocal
