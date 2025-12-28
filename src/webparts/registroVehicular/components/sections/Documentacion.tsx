@@ -42,19 +42,83 @@ export const Documentacion: React.FC<Props> = ({
   // a un string "YYYY-MM-DD" (o "" si no hay valor)
   const normalizeDateOut = (val: unknown): string => {
     if (!val) return "";
-    if (typeof val === "string") {
-      return val;
-    }
+    if (typeof val === "string") return val;
     if (val instanceof Date && !isNaN(val.getTime())) {
       return val.toISOString().split("T")[0];
     }
     return "";
   };
 
+  // -----------------------
+  // Validación
+  // -----------------------
+  const monthsAgo = (n: number) => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    d.setMonth(d.getMonth() - n);
+    return d;
+  };
+
+  // admite string "YYYY-MM-DD" y también Date directamente
+  const toComparableDate = (v: unknown): Date | null => {
+    if (!v) return null;
+
+    if (typeof v === "string") {
+      const trimmed = v.trim();
+      if (!trimmed) return null;
+      const d = new Date(trimmed);
+      return isNaN(d.getTime()) ? null : d;
+    }
+
+    if (v instanceof Date) {
+      return isNaN(v.getTime()) ? null : v;
+    }
+
+    return null;
+  };
+
+  const today = React.useMemo(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, []);
+
+  // string YYYY-MM-DD para dateMin/dateMax del input type="date"
+  const todayStr = React.useMemo(() => {
+    return today.toISOString().slice(0, 10);
+  }, [today]);
+
+  const isWithinLastMonths = (d: Date | null, n: number) =>
+    !!d && d >= monthsAgo(n);
+
+  const isFuture = (d: Date | null) => {
+    if (!d) return false;
+    const x = new Date(d);
+    x.setHours(0, 0, 0, 0);
+    return x > today;
+  };
+
+  const isEmissionField = (field: keyof DocState) =>
+    field === "fumigacionDate" ||
+    field === "termokingDate" ||
+    field === "limpiezaDate" ||
+    field === "SanipesDate"; // si no querés SANIPES, sacá esta línea
+
   // handler para guardar fechas como string
   const handleDateChange =
     (field: keyof DocState) =>
     (value: string) => {
+      const d = toComparableDate(value);
+
+      // Solo bloqueamos FUTURO en campos "de emisión" (no en vencimiento)
+      if (isEmissionField(field) && isFuture(d)) {
+        window.alert(
+          "La fecha de emisión no puede ser mayor a la fecha actual."
+        );
+        return;
+      }
+
+      // Para vencimientos, no bloqueamos futuro; la restricción se hace con dateMin en el calendario
       set(field)(value as any);
     };
 
@@ -94,83 +158,73 @@ export const Documentacion: React.FC<Props> = ({
     return opts;
   }, []);
 
-  // -----------------------
-  // Validación
-  // -----------------------
-
-  const monthsAgo = (n: number) => {
-    const d = new Date();
-    d.setHours(0, 0, 0, 0);
-    d.setMonth(d.getMonth() - n);
-    return d;
-  };
-
-  // admite string "YYYY-MM-DD" y también Date directamente
-  const toComparableDate = (v: unknown): Date | null => {
-    if (!v) return null;
-
-    if (typeof v === "string") {
-      const trimmed = v.trim();
-      if (!trimmed) return null;
-      const d = new Date(trimmed);
-      return isNaN(d.getTime()) ? null : d;
-    }
-
-    if (v instanceof Date) {
-      return isNaN(v.getTime()) ? null : v;
-    }
-
-    return null;
-  };
-
-  const isWithinLastMonths = (d: Date | null, n: number) =>
-    !!d && d >= monthsAgo(n);
-
-  const today = React.useMemo(() => {
-    const d = new Date();
-    d.setHours(0, 0, 0, 0);
-    return d;
-  }, []);
-
   const [errors, setErrors] = React.useState<string[]>([]);
 
   React.useEffect(() => {
     const e: string[] = [];
 
-    // Fumigación <= 6 meses
+    // ---------- Reglas: "no futuro" para fechas de emisión ----------
     if (showFumigacion) {
       const fd = toComparableDate(doc.fumigacionDate as any);
-      if (fd && !isWithinLastMonths(fd, 6)) {
-        e.push(
-          "Fumigación: la fecha de emisión no puede superar 6 meses."
-        );
-      }
+      if (isFuture(fd))
+        e.push("Fumigación: la fecha de emisión no puede ser mayor a hoy.");
     }
 
-    // Revisión técnica: vencimiento >= hoy
-    {
-      const rd = toComparableDate(doc.revTecDate as any);
-      if (rd && rd < today) {
-        e.push(
-          "Revisión técnica: la fecha de vencimiento debe estar vigente."
-        );
-      }
-    }
-
-    // Termoking <= 6 meses
     if (showTermoking) {
       const td = toComparableDate(doc.termokingDate as any);
-      if (td && !isWithinLastMonths(td, 6)) {
+      if (isFuture(td))
+        e.push("Termoking: la fecha de emisión no puede ser mayor a hoy.");
+    }
+
+    if (showLimpieza) {
+      const ld = toComparableDate(doc.limpiezaDate as any);
+      if (isFuture(ld))
+        e.push(
+          "Limpieza y desinfección: la fecha de emisión no puede ser mayor a hoy."
+        );
+    }
+
+    if (showSanipes) {
+      const sd = toComparableDate(doc.SanipesDate as any);
+      if (isFuture(sd)) e.push("SANIPES: la fecha no puede ser mayor a hoy.");
+    }
+
+    // ---------- Reglas existentes (pero evitando el bug de futuro) ----------
+    // Fumigación <= 6 meses (solo si no es futura)
+    if (showFumigacion) {
+      const fd = toComparableDate(doc.fumigacionDate as any);
+      if (fd && !isFuture(fd) && !isWithinLastMonths(fd, 6)) {
+        e.push("Fumigación: la fecha de emisión no puede superar 6 meses.");
+      }
+    }
+
+    // Revisión técnica: vencimiento >= hoy (puede ser futura, OK)
+    {
+      const rd = toComparableDate(doc.revTecDate as any);
+      if (rd) {
+        rd.setHours(0, 0, 0, 0);
+        if (rd < today) {
+          e.push(
+            "Revisión técnica: la fecha de vencimiento debe estar vigente."
+          );
+        }
+      }
+    }
+
+    // Termoking <= 6 meses (solo si no es futura)
+    if (showTermoking) {
+      const td = toComparableDate(doc.termokingDate as any);
+      if (td && !isFuture(td) && !isWithinLastMonths(td, 6)) {
         e.push(
           "Termoking: la fecha de emisión no puede tener una antigüedad mayor a 6 meses."
         );
       }
     }
 
-    // Limpieza <= 1 mes
+    // Limpieza <= 1 mes (solo si no es futura)
     if (showLimpieza) {
       const ld = toComparableDate(doc.limpiezaDate as any);
-      if (ld && !isWithinLastMonths(ld, 1)) {
+      if (ld && !isFuture(ld) && !isWithinLastMonths(ld, 1)) {
         e.push(
           "Limpieza y desinfección: la fecha de emisión no puede superar 1 mes."
         );
@@ -184,9 +238,11 @@ export const Documentacion: React.FC<Props> = ({
     doc.revTecDate,
     doc.termokingDate,
     doc.limpiezaDate,
+    doc.SanipesDate,
     showFumigacion,
     showTermoking,
     showLimpieza,
+    showSanipes,
     today,
     onValidityChange,
   ]);
@@ -215,7 +271,6 @@ export const Documentacion: React.FC<Props> = ({
       )}
 
       <div className={classes.docsGrid}>
-        {/* Tarjeta de propiedad */}
         <div className={`${classes.docItem} ${classes.docLabelScope}`}>
           <DocCard
             title="Tarjeta de propiedad"
@@ -224,7 +279,6 @@ export const Documentacion: React.FC<Props> = ({
           />
         </div>
 
-        {/* Bonificación */}
         {showResBonificacion && (
           <div className={`${classes.docItem} ${classes.docLabelScope}`}>
             <DocCard
@@ -238,7 +292,6 @@ export const Documentacion: React.FC<Props> = ({
           </div>
         )}
 
-        {/* Fumigación */}
         {showFumigacion && (
           <div className={`${classes.docItem} ${classes.docLabelScope}`}>
             <DocCard
@@ -246,6 +299,7 @@ export const Documentacion: React.FC<Props> = ({
               dateLabel="Fecha de emisión"
               dateValue={normalizeDateOut(doc.fumigacionDate)}
               onDateChange={handleDateChange("fumigacionDate")}
+              dateMax={todayStr} // <-- EMISIÓN: no futuro
               file={normalizeFileOut(doc.fumigacionFile)}
               onFileChange={handleFileChange(
                 "fumigacionFile",
@@ -255,27 +309,23 @@ export const Documentacion: React.FC<Props> = ({
           </div>
         )}
 
-        {/* Revisión técnica */}
         <div className={`${classes.docItem} ${classes.docLabelScope}`}>
           <DocCard
             title="Revisión técnica"
             dateLabel="Fecha de vencimiento"
             dateValue={normalizeDateOut(doc.revTecDate)}
             onDateChange={handleDateChange("revTecDate")}
+            dateMin={todayStr} // <-- VENCIMIENTO: >= hoy
             textLabel="Año de fabricación"
             textValue={doc.revTecText ?? ""}
             onTextChange={(v) => set("revTecText")(String(v ?? ""))}
             textAsDropdown
             textOptions={yearOptions}
             file={normalizeFileOut(doc.revTecFile)}
-            onFileChange={handleFileChange(
-              "revTecFile",
-              "Revisión técnica"
-            )}
+            onFileChange={handleFileChange("revTecFile", "Revisión técnica")}
           />
         </div>
 
-        {/* Sanipes */}
         {showSanipes && (
           <div className={`${classes.docItem} ${classes.docLabelScope}`}>
             <DocCard
@@ -283,19 +333,16 @@ export const Documentacion: React.FC<Props> = ({
               dateLabel="Fecha de resolución de expediente"
               dateValue={normalizeDateOut(doc.SanipesDate)}
               onDateChange={handleDateChange("SanipesDate")}
+              dateMax={todayStr} // <-- como EMISIÓN/RESOLUCIÓN: no futuro
               textLabel="N° de expediente"
               textValue={doc.SanipesText ?? ""}
               onTextChange={(v) => set("SanipesText")(String(v ?? ""))}
               file={normalizeFileOut(doc.sanipesFile)}
-              onFileChange={handleFileChange(
-                "sanipesFile",
-                "SANIPES"
-              )}
+              onFileChange={handleFileChange("sanipesFile", "SANIPES")}
             />
           </div>
         )}
 
-        {/* Termoking */}
         {showTermoking && (
           <div className={`${classes.docItem} ${classes.docLabelScope}`}>
             <DocCard
@@ -303,6 +350,7 @@ export const Documentacion: React.FC<Props> = ({
               dateLabel="Fecha de emisión"
               dateValue={normalizeDateOut(doc.termokingDate)}
               onDateChange={handleDateChange("termokingDate")}
+              dateMax={todayStr} // <-- EMISIÓN: no futuro
               file={normalizeFileOut(doc.termokingFile)}
               onFileChange={handleFileChange(
                 "termokingFile",
@@ -312,7 +360,6 @@ export const Documentacion: React.FC<Props> = ({
           </div>
         )}
 
-        {/* Limpieza y desinfección */}
         {showLimpieza && (
           <div className={`${classes.docItem} ${classes.docLabelScope}`}>
             <DocCard
@@ -320,6 +367,7 @@ export const Documentacion: React.FC<Props> = ({
               dateLabel="Fecha de emisión"
               dateValue={normalizeDateOut(doc.limpiezaDate)}
               onDateChange={handleDateChange("limpiezaDate")}
+              dateMax={todayStr} // <-- EMISIÓN: no futuro
               file={normalizeFileOut(doc.limpiezaFile)}
               onFileChange={handleFileChange(
                 "limpiezaFile",

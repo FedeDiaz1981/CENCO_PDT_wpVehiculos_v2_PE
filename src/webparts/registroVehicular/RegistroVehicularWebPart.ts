@@ -1,14 +1,15 @@
-import * as React from 'react';
-import * as ReactDom from 'react-dom';
-import { Version } from '@microsoft/sp-core-library';
+import * as React from "react";
+import * as ReactDom from "react-dom";
+import { Version } from "@microsoft/sp-core-library";
 import {
   IPropertyPaneConfiguration,
-  PropertyPaneToggle
-} from '@microsoft/sp-property-pane';
-import { BaseClientSideWebPart } from '@microsoft/sp-webpart-base';
+  PropertyPaneToggle,
+  PropertyPaneTextField,
+} from "@microsoft/sp-property-pane";
+import { BaseClientSideWebPart } from "@microsoft/sp-webpart-base";
 
-import RegistroVehicular from './components/RegistroVehicular';
-import { initSP } from '../../pnp';
+import RegistroVehicular from "./components/RegistroVehicular";
+import { initSP } from "../../pnp";
 
 // Props configurables desde el panel del webpart
 export interface IRegistroVehicularWebPartProps {
@@ -22,28 +23,35 @@ export interface IRegistroVehicularWebPartProps {
   Coordinador: boolean;
   Transportista: boolean;
   Borrar: boolean;
+
+  alturaPisoHelpImageUrl: string;
+
+  redireccion: boolean;
+  urlRedireccion: string;
 }
 
-export default class RegistroVehicularWebPart
-  extends BaseClientSideWebPart<IRegistroVehicularWebPartProps> {
-
+export default class RegistroVehicularWebPart extends BaseClientSideWebPart<IRegistroVehicularWebPartProps> {
   public render(): void {
     console.log("Render");
     const componentProps: any = {
       spContext: this.context,
 
-      vehiculosListTitle: 'Vehiculos',
-      proveedoresList: 'Proveedores',
-      proveedoresDisplayField: 'Title',
-      proveedoresUserField: 'Usuarios',
-      
+      vehiculosListTitle: "Vehiculos",
+      proveedoresList: "Proveedores",
+      proveedoresDisplayField: "Title",
+      proveedoresUserField: "Usuarios",
+
       Proveedor: this.properties.Proveedor ?? false,
       Distribuidor: false,
       Coordinador: false,
       Transportista: this.properties.Transportista ?? false,
 
       // pasa la config al componente React
-      Borrar: this.properties.Borrar ?? false
+      Borrar: this.properties.Borrar ?? false,
+
+      alturaPisoHelpImageUrl: this.properties.alturaPisoHelpImageUrl || "",
+      redireccion: this.properties.redireccion || false,
+      urlRedireccion: this.properties.urlRedireccion || "", 
     };
 
     const element = React.createElement(
@@ -64,7 +72,7 @@ export default class RegistroVehicularWebPart
   }
 
   protected get dataVersion(): Version {
-    return Version.parse('1.0');
+    return Version.parse("1.0");
   }
 
   // Panel de propiedades (Property Pane)
@@ -73,40 +81,66 @@ export default class RegistroVehicularWebPart
       pages: [
         {
           header: {
-            description: 'Configuración Registro Vehicular'
+            description: "Configuración Registro Vehicular",
           },
           groups: [
             {
-              groupName: 'Roles / Permisos',
+              groupName: "Roles / Permisos",
               groupFields: [
-                PropertyPaneToggle('Proveedor', {
-                  label: 'Proveedor',
-                  onText: 'Sí',
-                  offText: 'No',
-                  checked: this.properties.Proveedor
+                PropertyPaneToggle("Proveedor", {
+                  label: "Proveedor",
+                  onText: "Sí",
+                  offText: "No",
+                  checked: this.properties.Proveedor,
                 }),
-                PropertyPaneToggle('Transportista', {
-                  label: 'Transportista',
-                  onText: 'Sí',
-                  offText: 'No',
-                  checked: this.properties.Transportista
-                })
-              ]
+                PropertyPaneToggle("Transportista", {
+                  label: "Transportista",
+                  onText: "Sí",
+                  offText: "No",
+                  checked: this.properties.Transportista,
+                }),
+              ],
             },
             {
-              groupName: 'Comportamiento de baja',
+              groupName: "Comportamiento de baja",
               groupFields: [
-                PropertyPaneToggle('Borrar', {
-                  label: 'Al dar de baja, borrar registro (en vez de marcar inactivo)',
-                  onText: 'Borrar registro',
-                  offText: 'Marcar Activo = false',
-                  checked: this.properties.Borrar
-                })
-              ]
-            }
-          ]
-        }
-      ]
+                PropertyPaneToggle("Borrar", {
+                  label:
+                    "Al dar de baja, borrar registro (en vez de marcar inactivo)",
+                  onText: "Borrar registro",
+                  offText: "Marcar Activo = false",
+                  checked: this.properties.Borrar,
+                }),
+              ],
+            },
+            {
+              groupName: "Ayudas",
+              groupFields: [
+                PropertyPaneTextField("alturaPisoHelpImageUrl", {
+                  label: "URL imagen ayuda (Altura del piso)",
+                  placeholder: "https://.../Altura.png",
+                }),
+              ],
+            },
+            {
+            groupName: "Comportamiento",
+            groupFields: [
+              PropertyPaneToggle("redireccion", {
+                label: "Redirección",
+                onText: "Activada",
+                offText: "Desactivada",
+              }),
+
+              PropertyPaneTextField("urlRedireccion", {
+                label: "URL de redirección",
+                placeholder: "/sites/tuSitio/SitePages/Home.aspx",
+                disabled: !this.properties.redireccion, // clave
+              }),
+            ],
+          },
+          ],
+        },
+      ],
     };
   }
 }

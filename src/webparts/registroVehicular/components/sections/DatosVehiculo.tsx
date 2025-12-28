@@ -11,7 +11,6 @@ import {
 } from "@fluentui/react";
 
 import { classes } from "../../ui/styles";
-// CAMBIO: usamos la función que lee de la lista
 import {
   getProveedoresCatalogFromList,
   ProveedorInfo,
@@ -62,12 +61,15 @@ const CAPACIDAD_OPTIONS: IDropdownOption[] = [
   { key: "otro", text: "otro" },
 ];
 
-const normalizar = (s: any) =>
+const normalizar = (s: unknown): string =>
   String(s || "")
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .trim();
+
+const hasValue = (v: unknown): boolean =>
+  v !== undefined && v !== null && String(v).trim() !== "";
 
 const DatosVehiculo: React.FC<{
   vehiculo?: VehiculoExt;
@@ -85,6 +87,12 @@ const DatosVehiculo: React.FC<{
   proveedoresList?: string;
   proveedoresDisplayField?: string;
   proveedoresUserField?: string;
+  alturaPisoHelpImageUrl?: string;
+
+  // NUEVO (para mostrar rectángulos SOLO después del primer intento de guardar)
+  showValidation?: boolean;
+  // acepta keys ("EmpresaId", "Placa", etc.) o labels ("Empresa", "Placa", etc.)
+  missingRequired?: string[];
 }> = ({
   vehiculo = {},
   setVehiculo,
@@ -101,12 +109,15 @@ const DatosVehiculo: React.FC<{
   proveedoresList,
   proveedoresDisplayField,
   proveedoresUserField,
+  alturaPisoHelpImageUrl,
+
+  showValidation = false,
+  missingRequired = [],
 }) => {
   const safeVehiculo: VehiculoExt = vehiculo || {};
 
   const [isAlturaModalOpen, setIsAlturaModalOpen] = React.useState(false);
 
-  // NUEVO: proveedores leídos de la lista
   const [proveedores, setProveedores] = React.useState<ProveedorInfo[]>([]);
 
   React.useEffect(() => {
@@ -127,6 +138,138 @@ const DatosVehiculo: React.FC<{
   const isLocked = React.useCallback(
     (name: string) => lockedFields?.includes(name),
     [lockedFields]
+  );
+
+  // ===========
+  // Validación visual (solo si showValidation === true)
+  // ===========
+  const missingKeySet = React.useMemo(() => {
+    const set = new Set<string>();
+
+    // Mapea labels (lo que hoy genera RegistroVehicular) -> keys del formulario
+    const labelToKey: Record<string, string> = {
+      Empresa: "EmpresaId",
+      Temperatura: "Temperatura",
+      "Tipo de unidad": "TipoUnidad",
+      "Tipo temperatura": "TipoTemperatura",
+      Marca: "Marca",
+      Modelo: "Modelo",
+      Placa: "Placa",
+      SOAT: "SOAT",
+      "Código de unidad": "CodigoInterno",
+      Capacidad: "Capacidad",
+      "Capacidad otros": "Otros",
+      "Medida interna": "MedidasInternas",
+      "Medida externa": "MedidasExternas",
+      "Altura de piso": "AlturaPiso",
+      "Peso útil": "PesoCargaUtil",
+      "Peso bruto": "PesoNeto",
+      "Largo de rampa": "LargoRampa",
+      "Ancho de rampa": "AnchoRampa",
+      // si alguna vez lo usan:
+      Bonificacion: "Bonificacion",
+      "N° de resolución": "NroResolucion",
+    };
+
+    for (const raw of missingRequired || []) {
+      const s = String(raw || "").trim();
+      if (!s) continue;
+
+      // Si ya viene como key
+      if (
+        [
+          "EmpresaId",
+          "Temperatura",
+          "TipoUnidad",
+          "TipoTemperatura",
+          "Placa",
+          "SOAT",
+          "CodigoInterno",
+          "Marca",
+          "Modelo",
+          "Capacidad",
+          "Otros",
+          "MedidasInternas",
+          "MedidasExternas",
+          "AlturaPiso",
+          "PesoCargaUtil",
+          "PesoNeto",
+          "LargoRampa",
+          "AnchoRampa",
+          "Bonificacion",
+          "NroResolucion",
+        ].includes(s)
+      ) {
+        set.add(s);
+        continue;
+      }
+
+      // Si viene como label, mapear
+      const mapped = labelToKey[s];
+      if (mapped) set.add(mapped);
+    }
+
+    return set;
+  }, [missingRequired]);
+
+  const isRequired = React.useCallback(
+    (key: string): boolean => required?.[key] === true,
+    [required]
+  );
+
+  // Fallback (por si no pasan missingRequired): usa required + valor
+  const isInvalidFallback = React.useCallback(
+    (key: string, value: unknown, lockedBy?: string | string[]): boolean => {
+      if (!isRequired(key)) return false;
+      if (disabled) return false;
+
+      const locks = Array.isArray(lockedBy)
+        ? lockedBy
+        : lockedBy
+        ? [lockedBy]
+        : [key];
+
+      if (locks.some((k) => isLocked(k))) return false;
+
+      return !hasValue(value);
+    },
+    [disabled, isLocked, isRequired]
+  );
+
+  const isInvalid = React.useCallback(
+    (key: string, value: unknown, lockedBy?: string | string[]): boolean => {
+      // clave: NO mostrar nada si no se intentó guardar
+      if (!showValidation) return false;
+
+      // si el padre nos pasa faltantes, usamos eso (es lo que querés)
+      if (missingKeySet.size > 0) {
+        // igual respetamos locks para no marcar campos bloqueados
+        const locks = Array.isArray(lockedBy)
+          ? lockedBy
+          : lockedBy
+          ? [lockedBy]
+          : [key];
+        if (locks.some((k) => isLocked(k))) return false;
+
+        return missingKeySet.has(key);
+      }
+
+      // fallback
+      return isInvalidFallback(key, value, lockedBy);
+    },
+    [showValidation, missingKeySet, isLocked, isInvalidFallback]
+  );
+
+  const invalidBoxStyle = React.useCallback(
+    (invalid: boolean): React.CSSProperties | undefined => {
+      if (!invalid) return undefined;
+      return {
+        border: "2px solid #a4262c",
+        borderRadius: 6,
+        padding: 6,
+      };
+    },
+    []
   );
 
   const setText =
@@ -193,9 +336,60 @@ const DatosVehiculo: React.FC<{
     }));
   };
 
+  const alturaHelpUrl =
+    (alturaPisoHelpImageUrl || "").trim() ||
+    "https://cnco.sharepoint.com/sites/DucumentosTrasportesPE/SiteAssets/Altura.png";
+
+  // ===========
+  // flags de invalid por campo
+  // ===========
+  const invalidEmpresa = isInvalid("EmpresaId", safeVehiculo.EmpresaId, [
+    "Empresa",
+    "EmpresaId",
+  ]);
+
+  const invalidTemp = isInvalid("Temperatura", safeVehiculo.Temperatura, "Temperatura");
+  const invalidTipoUnidad = isInvalid("TipoUnidad", safeVehiculo.TipoUnidad, "TipoUnidad");
+  const invalidTipoTemp = showTipoTemperatura
+    ? isInvalid("TipoTemperatura", safeVehiculo.TipoTemperatura, "TipoTemperatura")
+    : false;
+
+  const invalidPlaca = isInvalid("Placa", safeVehiculo.Placa, ["Placa", "Title"]);
+  const invalidSoat = isInvalid("SOAT", safeVehiculo.SOAT, "SOAT");
+  // OJO: tu estado usa vehiculo.Codigo, pero la validación/required la manejás como CodigoInterno
+  const invalidCodigo = isInvalid("CodigoInterno", safeVehiculo.Codigo, [
+    "Codigo",
+    "CodigoInterno",
+  ]);
+
+  const invalidMarca = isInvalid("Marca", safeVehiculo.Marca, "Marca");
+  const invalidModelo = isInvalid("Modelo", safeVehiculo.Modelo, "Modelo");
+
+  const invalidCapacidad = isInvalid("Capacidad", safeVehiculo.Capacidad, "Capacidad");
+  const invalidOtros = isCapacidadOtro ? isInvalid("Otros", safeVehiculo.Otros, "Otros") : false;
+
+  // NOTA: por tus comentarios, NO querés forzar toggles. Igual si el padre manda faltantes para Rampa, lo pinta.
+  const invalidRampa = isInvalid("Rampa", safeVehiculo.Rampa, "Rampa");
+  const invalidLargoRampa =
+    safeVehiculo.Rampa ? isInvalid("LargoRampa", safeVehiculo.LargoRampa, "LargoRampa") : false;
+  const invalidAnchoRampa =
+    safeVehiculo.Rampa ? isInvalid("AnchoRampa", safeVehiculo.AnchoRampa, "AnchoRampa") : false;
+
+  const invalidBonificacion = isInvalid("Bonificacion", safeVehiculo.Bonificacion, "Bonificacion");
+  const invalidResolucion =
+    safeVehiculo.Bonificacion
+      ? isInvalid("NroResolucion", safeVehiculo.NroResolucion, "NroResolucion")
+      : false;
+
+  const invalidMedInt = isInvalid("MedidasInternas", safeVehiculo.MedidasInternas, "MedidasInternas");
+  const invalidMedExt = isInvalid("MedidasExternas", safeVehiculo.MedidasExternas, "MedidasExternas");
+  const invalidAltura = isInvalid("AlturaPiso", safeVehiculo.AlturaPiso, "AlturaPiso");
+
+  const invalidPesoUtil = isInvalid("PesoCargaUtil", safeVehiculo.PesoCargaUtil, "PesoCargaUtil");
+  const invalidPesoBruto = isInvalid("PesoNeto", safeVehiculo.PesoNeto, "PesoNeto");
+
   return (
     <div className={classes.card}>
-      {/* Header */}
       <div className={classes.cardHeader}>
         <Icon iconName="Car" />
         <div className={classes.cardTitle}>1- Datos del vehículo</div>
@@ -206,18 +400,21 @@ const DatosVehiculo: React.FC<{
       <div className={classes.grid3}>
         <div className={classes.fieldCell}>
           <div className={classes.fieldLabel}>Empresa *</div>
-          <Dropdown
-            placeholder="Seleccione..."
-            options={EMPRESA_OPTIONS}
-            selectedKey={safeVehiculo.EmpresaId || undefined}
-            onChange={onEmpresaChange}
-            disabled={
-              disabled ||
-              empresaBloqueada ||
-              isLocked("Empresa") ||
-              isLocked("EmpresaId")
-            }
-          />
+
+          <div style={invalidBoxStyle(invalidEmpresa)}>
+            <Dropdown
+              placeholder="Seleccione..."
+              options={EMPRESA_OPTIONS}
+              selectedKey={safeVehiculo.EmpresaId || undefined}
+              onChange={onEmpresaChange}
+              disabled={
+                disabled ||
+                empresaBloqueada ||
+                isLocked("Empresa") ||
+                isLocked("EmpresaId")
+              }
+            />
+          </div>
 
           {proveedorActual && (
             <div style={{ fontSize: "12px", color: "#555", marginTop: 4 }}>
@@ -231,52 +428,60 @@ const DatosVehiculo: React.FC<{
 
       {/* Temperatura / Tipo temperatura / Tipo de unidad */}
       <div className={classes.grid3}>
-        {/* Temperatura */}
         <div className={classes.fieldCell}>
           <div className={classes.fieldLabel}>Temperatura *</div>
-          <Dropdown
-            placeholder="Seleccione..."
-            options={choices["Temperatura"] || []}
-            selectedKey={safeVehiculo.Temperatura || undefined}
-            onChange={setChoiceFromList("Temperatura")}
-            disabled={disabled}
-          />
-        </div>
-
-        {/* Tipo temperatura (solo si aplica) */}
-        {showTipoTemperatura && (
-          <div className={classes.fieldCell}>
-            <div className={classes.fieldLabel}>Tipo temperatura *</div>
+          <div style={invalidBoxStyle(invalidTemp)}>
             <Dropdown
               placeholder="Seleccione..."
-              options={choices["TipoTemperatura"] || []}
-              selectedKey={safeVehiculo.TipoTemperatura || undefined}
-              onChange={setChoiceFromList("TipoTemperatura")}
+              options={choices["Temperatura"] || []}
+              selectedKey={safeVehiculo.Temperatura || undefined}
+              onChange={setChoiceFromList("Temperatura")}
               disabled={disabled}
             />
           </div>
+        </div>
+
+        {showTipoTemperatura && (
+          <div className={classes.fieldCell}>
+            <div className={classes.fieldLabel}>Tipo temperatura *</div>
+            <div style={invalidBoxStyle(invalidTipoTemp)}>
+              <Dropdown
+                placeholder="Seleccione..."
+                options={choices["TipoTemperatura"] || []}
+                selectedKey={safeVehiculo.TipoTemperatura || undefined}
+                onChange={setChoiceFromList("TipoTemperatura")}
+                disabled={disabled}
+              />
+            </div>
+          </div>
         )}
 
-        {/* Tipo de unidad */}
         <div className={classes.fieldCell}>
           <div className={classes.fieldLabel}>Tipo de unidad *</div>
-          <Dropdown
-            placeholder="Seleccione..."
-            options={choices["TipoUnidad"] || []}
-            selectedKey={safeVehiculo.TipoUnidad || undefined}
-            onChange={setChoiceFromList("TipoUnidad")}
-            disabled={disabled}
-          />
+          <div style={invalidBoxStyle(invalidTipoUnidad)}>
+            <Dropdown
+              placeholder="Seleccione..."
+              options={choices["TipoUnidad"] || []}
+              selectedKey={safeVehiculo.TipoUnidad || undefined}
+              onChange={setChoiceFromList("TipoUnidad")}
+              disabled={disabled}
+            />
+          </div>
         </div>
       </div>
 
-      {/* Placa / SOAT / Código de unidad */}
+      {/* Placa / SOAT / Código */}
       <div className={classes.grid3}>
         <TextField
           label="Placa *"
           value={safeVehiculo.Placa || ""}
           onChange={setText("Placa")}
           disabled={disabled || isLocked("Placa") || isLocked("Title")}
+          styles={
+            invalidPlaca
+              ? { fieldGroup: { borderColor: "#a4262c", borderWidth: 2 } }
+              : undefined
+          }
         />
 
         <TextField
@@ -284,14 +489,22 @@ const DatosVehiculo: React.FC<{
           value={safeVehiculo.SOAT || ""}
           onChange={setText("SOAT")}
           disabled={disabled}
+          styles={
+            invalidSoat
+              ? { fieldGroup: { borderColor: "#a4262c", borderWidth: 2 } }
+              : undefined
+          }
         />
 
         <TextField
           label="Código de unidad *"
           value={safeVehiculo.Codigo || ""}
           onChange={setText("Codigo")}
-          disabled={
-            disabled || isLocked("Codigo") || isLocked("CodigoInterno")
+          disabled={disabled || isLocked("Codigo") || isLocked("CodigoInterno")}
+          styles={
+            invalidCodigo
+              ? { fieldGroup: { borderColor: "#a4262c", borderWidth: 2 } }
+              : undefined
           }
         />
       </div>
@@ -303,6 +516,11 @@ const DatosVehiculo: React.FC<{
           value={safeVehiculo.Marca || ""}
           onChange={setText("Marca")}
           disabled={disabled || isLocked("Marca")}
+          styles={
+            invalidMarca
+              ? { fieldGroup: { borderColor: "#a4262c", borderWidth: 2 } }
+              : undefined
+          }
         />
 
         <TextField
@@ -310,22 +528,29 @@ const DatosVehiculo: React.FC<{
           value={safeVehiculo.Modelo || ""}
           onChange={setText("Modelo")}
           disabled={disabled || isLocked("Modelo")}
+          styles={
+            invalidModelo
+              ? { fieldGroup: { borderColor: "#a4262c", borderWidth: 2 } }
+              : undefined
+          }
         />
 
         <div />
       </div>
 
-      {/* Capacidad + "Especifique capacidad" si Capacidad = otro */}
+      {/* Capacidad */}
       <div className={classes.grid3}>
         <div className={classes.fieldCell}>
           <div className={classes.fieldLabel}>Capacidad *</div>
-          <Dropdown
-            placeholder="Seleccione..."
-            options={CAPACIDAD_OPTIONS}
-            selectedKey={safeVehiculo.Capacidad || undefined}
-            onChange={setChoiceFixed("Capacidad")}
-            disabled={disabled}
-          />
+          <div style={invalidBoxStyle(invalidCapacidad)}>
+            <Dropdown
+              placeholder="Seleccione..."
+              options={CAPACIDAD_OPTIONS}
+              selectedKey={safeVehiculo.Capacidad || undefined}
+              onChange={setChoiceFixed("Capacidad")}
+              disabled={disabled}
+            />
+          </div>
         </div>
 
         {isCapacidadOtro && (
@@ -335,6 +560,11 @@ const DatosVehiculo: React.FC<{
               value={safeVehiculo.Otros || ""}
               onChange={setText("Otros")}
               disabled={disabled}
+              styles={
+                invalidOtros
+                  ? { fieldGroup: { borderColor: "#a4262c", borderWidth: 2 } }
+                  : undefined
+              }
             />
           </div>
         )}
@@ -342,20 +572,22 @@ const DatosVehiculo: React.FC<{
         <div />
       </div>
 
-      {/* Rampa / Largo rampa / Ancho rampa */}
+      {/* Rampa */}
       <div className={classes.grid3}>
         <div className={classes.fieldCell}>
           <div className={classes.fieldLabel}>Rampa *</div>
-          <Toggle
-            checked={!!safeVehiculo.Rampa}
-            onChange={(_e, c) =>
-              setVehiculo((s) => ({
-                ...(s || {}),
-                Rampa: !!c,
-              }))
-            }
-            disabled={disabled}
-          />
+          <div style={invalidBoxStyle(invalidRampa)}>
+            <Toggle
+              checked={!!safeVehiculo.Rampa}
+              onChange={(_e, c) =>
+                setVehiculo((s) => ({
+                  ...(s || {}),
+                  Rampa: !!c,
+                }))
+              }
+              disabled={disabled}
+            />
+          </div>
         </div>
 
         {safeVehiculo.Rampa && (
@@ -365,31 +597,43 @@ const DatosVehiculo: React.FC<{
               value={safeVehiculo.LargoRampa || ""}
               onChange={setText("LargoRampa")}
               disabled={disabled}
+              styles={
+                invalidLargoRampa
+                  ? { fieldGroup: { borderColor: "#a4262c", borderWidth: 2 } }
+                  : undefined
+              }
             />
             <TextField
               label="Ancho rampa *"
               value={safeVehiculo.AnchoRampa || ""}
               onChange={setText("AnchoRampa")}
               disabled={disabled}
+              styles={
+                invalidAnchoRampa
+                  ? { fieldGroup: { borderColor: "#a4262c", borderWidth: 2 } }
+                  : undefined
+              }
             />
           </>
         )}
       </div>
 
-      {/* Bonificación / N° de resolución */}
+      {/* Bonificación */}
       <div className={classes.grid3}>
         <div className={classes.fieldCell}>
           <div className={classes.fieldLabel}>Bonificación *</div>
-          <Toggle
-            checked={!!safeVehiculo.Bonificacion}
-            onChange={(_e, c) =>
-              setVehiculo((s) => ({
-                ...(s || {}),
-                Bonificacion: !!c,
-              }))
-            }
-            disabled={disabled || bonificacionBloqueada}
-          />
+          <div style={invalidBoxStyle(invalidBonificacion)}>
+            <Toggle
+              checked={!!safeVehiculo.Bonificacion}
+              onChange={(_e, c) =>
+                setVehiculo((s) => ({
+                  ...(s || {}),
+                  Bonificacion: !!c,
+                }))
+              }
+              disabled={disabled || bonificacionBloqueada}
+            />
+          </div>
         </div>
 
         {safeVehiculo.Bonificacion && (
@@ -398,19 +642,29 @@ const DatosVehiculo: React.FC<{
             value={safeVehiculo.NroResolucion || ""}
             onChange={setText("NroResolucion")}
             disabled={disabled || bonificacionBloqueada}
+            styles={
+              invalidResolucion
+                ? { fieldGroup: { borderColor: "#a4262c", borderWidth: 2 } }
+                : undefined
+            }
           />
         )}
 
         <div />
       </div>
 
-      {/* Medidas internas / externas */}
+      {/* Medidas */}
       <div className={classes.grid3}>
         <TextField
           label="Medidas internas *"
           value={safeVehiculo.MedidasInternas || ""}
           onChange={setText("MedidasInternas")}
           disabled={disabled}
+          styles={
+            invalidMedInt
+              ? { fieldGroup: { borderColor: "#a4262c", borderWidth: 2 } }
+              : undefined
+          }
         />
 
         <TextField
@@ -418,12 +672,17 @@ const DatosVehiculo: React.FC<{
           value={safeVehiculo.MedidasExternas || ""}
           onChange={setText("MedidasExternas")}
           disabled={disabled}
+          styles={
+            invalidMedExt
+              ? { fieldGroup: { borderColor: "#a4262c", borderWidth: 2 } }
+              : undefined
+          }
         />
 
         <div />
       </div>
 
-      {/* Altura del piso + modal referencia */}
+      {/* Altura */}
       <div className={classes.grid3}>
         <TextField
           onRenderLabel={() => (
@@ -444,6 +703,11 @@ const DatosVehiculo: React.FC<{
           value={safeVehiculo.AlturaPiso || ""}
           onChange={setText("AlturaPiso")}
           disabled={disabled}
+          styles={
+            invalidAltura
+              ? { fieldGroup: { borderColor: "#a4262c", borderWidth: 2 } }
+              : undefined
+          }
         />
 
         <div />
@@ -458,6 +722,11 @@ const DatosVehiculo: React.FC<{
           type={isNumber("pesocargautil") ? "number" : "text"}
           onChange={setText("PesoCargaUtil")}
           disabled={disabled}
+          styles={
+            invalidPesoUtil
+              ? { fieldGroup: { borderColor: "#a4262c", borderWidth: 2 } }
+              : undefined
+          }
         />
 
         <TextField
@@ -466,12 +735,17 @@ const DatosVehiculo: React.FC<{
           type={isNumber("pesobruto") ? "number" : "text"}
           onChange={setText("PesoNeto")}
           disabled={disabled}
+          styles={
+            invalidPesoBruto
+              ? { fieldGroup: { borderColor: "#a4262c", borderWidth: 2 } }
+              : undefined
+          }
         />
 
         <div />
       </div>
 
-      {/* Modal referencia Altura del piso */}
+      {/* Modal referencia Altura */}
       <Modal
         isOpen={isAlturaModalOpen}
         onDismiss={() => setIsAlturaModalOpen(false)}
@@ -494,7 +768,7 @@ const DatosVehiculo: React.FC<{
             />
           </div>
           <img
-            src="https://cnco.sharepoint.com/sites/DucumentosTrasportesPE/SiteAssets/Altura.png"
+            src={alturaHelpUrl}
             alt="altura del piso"
             style={{
               maxWidth: "100%",

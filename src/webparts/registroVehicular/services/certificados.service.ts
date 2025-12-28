@@ -1,5 +1,5 @@
 import { SP } from "../../../pnp";
-import { SPFI } from "@pnp/sp";
+import type { SPFI } from "@pnp/sp";
 import { LISTS, CERT_FIELDS } from "./fields";
 
 import "@pnp/sp/webs";
@@ -9,14 +9,14 @@ import "@pnp/sp/attachments";
 
 export interface ICertificadoItem {
   Id: number;
-  Title: string;      // la placa
-  tipoCert: string;   // nombre del certificado
+  Title: string; // la placa
+  tipoCert: string; // nombre del certificado
   FechaVencimiento?: string;
   NumeroDocumento?: string;
 }
 
-// --- helpers básicos ---
-const esc = (s: string) => (s || "").replace(/'/g, "''");
+// helpers
+const esc = (s: string): string => String(s ?? "").replace(/'/g, "''");
 
 function sanitizeFileName(name?: string): string {
   const base = (name ?? "archivo")
@@ -26,69 +26,74 @@ function sanitizeFileName(name?: string): string {
   return base.replace(/[.\s]+$/u, "");
 }
 
-async function ensureAttachmentsEnabled(sp: SPFI, listTitle: string) {
-  const meta = await sp.web.lists.getByTitle(listTitle).select("EnableAttachments")();
-  if (meta?.EnableAttachments === false) {
+async function ensureAttachmentsEnabled(sp: SPFI, listTitle: string): Promise<void> {
+  const meta = (await sp.web.lists
+    .getByTitle(listTitle)
+    .select("EnableAttachments")()) as { EnableAttachments?: boolean };
+
+  if (meta.EnableAttachments === false) {
     await sp.web.lists.getByTitle(listTitle).update({ EnableAttachments: true });
   }
 }
 
 // ======================================================
-// 1) upsert de UN certificado (modelo Personas)
+// 1) add y obtener Id robusto (sin IItemAddResult)
 // ======================================================
+type CreatedAddResult = {
+  data?: { Id?: number; ID?: number };
+  item?: { select: (s: string) => () => Promise<{ Id?: number }> };
+};
 
 async function addCertificadoYObtenerId(
-  sp: SPFI,
-  placa: string,
-  tipo: string,
-  payload: any,
-  listTitle: string = LISTS.Certificados
+  list: { items: { add: (p: Record<string, unknown>) => Promise<unknown>; select: (s: string) => any } },
+  payload: Record<string, unknown>
 ): Promise<number> {
-  const list = sp.web.lists.getByTitle(listTitle);
+  const created = (await list.items.add(payload)) as CreatedAddResult;
 
-  // 1. intentamos crear
-  const addRes = await list.items.add({
-    [CERT_FIELDS.Title]: placa,
-    [CERT_FIELDS.Certificado]: tipo,
-    ...payload,
-  });
+  const id1 = created.data?.Id ?? created.data?.ID;
+  if (typeof id1 === "number" && id1 > 0) return id1;
 
-  // 2. tratamos de sacar el Id directo
-  let id = addRes?.data?.Id ?? addRes?.data?.ID ?? 0;
+  try {
+    const d = await created.item?.select("Id")?.();
+    const id2 = d?.Id;
+    if (typeof id2 === "number" && id2 > 0) return id2;
+  } catch {
+    // fallback
+  }
 
-  // 3. si no vino, lo buscamos
-  if (!id) {
-    const found: any[] = await list.items
+  const placa = String(payload[CERT_FIELDS.Title] ?? payload.Title ?? "");
+  const tipo = String(payload[CERT_FIELDS.Certificado] ?? "");
+
+  if (placa && tipo) {
+    const found = (await (list as any).items
       .select("Id")
       .filter(
-        `${CERT_FIELDS.Title} eq '${esc(placa)}' and ${CERT_FIELDS.Certificado} eq '${esc(
-          tipo
-        )}'`
+        `${CERT_FIELDS.Title} eq '${esc(placa)}' and ${CERT_FIELDS.Certificado} eq '${esc(tipo)}'`
       )
-      .orderBy("Id", false)  // el más nuevo primero
-      .top(1)();
+      .orderBy("Id", false)
+      .top(1)()) as Array<{ Id?: number }>;
 
-    id = found?.[0]?.Id ?? 0;
+    const id3 = found?.[0]?.Id;
+    if (typeof id3 === "number" && id3 > 0) return id3;
   }
 
-  if (!id) {
-    throw new Error("No se pudo obtener el Id del certificado creado.");
-  }
-
-  return id;
+  throw new Error("No se pudo obtener el Id del certificado creado.");
 }
 
+// ======================================================
+// 2) upsert de UN certificado (sin null)
+// ======================================================
 export async function upsertCertificadoVehiculo(opts: {
   placa: string;
   tipo: string;
-  emision?: string | null;
-  caducidad?: string | null;
-  anio?: string | number | null;
-  resolucion?: string | null;
-  expediente?: string | null;
-  file?: File | null;
+  emision?: string;
+  caducidad?: string;
+  anio?: string | number;
+  resolucion?: string;
+  expediente?: string;
+  file?: File;
   listTitle?: string;
-}): Promise<{ id: number; archivo?: string | null }> {
+}): Promise<{ id: number; archivo?: string }> {
   const {
     placa,
     tipo,
@@ -105,8 +110,7 @@ export async function upsertCertificadoVehiculo(opts: {
   await ensureAttachmentsEnabled(sp, listTitle);
   const list = sp.web.lists.getByTitle(listTitle);
 
-  // 1. ¿ya existe este certificado para esta placa?
-  const existing: any[] = await list.items
+  const existing = (await list.items
     .select("Id")
     .filter(
       `${CERT_FIELDS.Title} eq '${esc(placa)}' and (${CERT_FIELDS.Certificado} eq '${esc(
@@ -114,62 +118,84 @@ export async function upsertCertificadoVehiculo(opts: {
       )}' or ${CERT_FIELDS.Certificado} eq '${esc(tipo.toUpperCase())}')`
     )
     .orderBy("Id", false)
-    .top(1)();
+    .top(1)()) as Array<{ Id: number }>;
 
-  // payload con sólo lo que vino
-  const payload: any = {};
-  if (emision !== undefined) payload[CERT_FIELDS.Emision] = emision;
-  if (caducidad !== undefined) payload[CERT_FIELDS.Caducidad] = caducidad;
-  if (anio !== undefined && anio !== null && anio !== "")
-    payload[CERT_FIELDS.Anio] = String(anio);
-  if (resolucion !== undefined) payload[CERT_FIELDS.Resolucion] = resolucion;
-  if (expediente !== undefined) payload[CERT_FIELDS.Expediente] = expediente;
+  const patch: Record<string, unknown> = {};
+  if (emision !== undefined) patch[CERT_FIELDS.Emision] = emision;
+  if (caducidad !== undefined) patch[CERT_FIELDS.Caducidad] = caducidad;
+  if (anio !== undefined && String(anio).trim() !== "") patch[CERT_FIELDS.Anio] = String(anio);
+  if (resolucion !== undefined) patch[CERT_FIELDS.Resolucion] = resolucion;
+  if (expediente !== undefined) patch[CERT_FIELDS.Expediente] = expediente;
 
   let id: number;
 
-  if (existing.length) {
-    // actualizar
+  if (existing.length > 0) {
     id = existing[0].Id;
-    if (Object.keys(payload).length) {
-      await list.items.getById(id).update(payload);
+    if (Object.keys(patch).length > 0) {
+      await list.items.getById(id).update(patch);
     }
   } else {
-  
-    id = await addCertificadoYObtenerId(sp, placa, tipo, payload);
+    const createPayload: Record<string, unknown> = {
+      [CERT_FIELDS.Title]: placa,
+      [CERT_FIELDS.Certificado]: tipo,
+      ...patch,
+    };
+    id = await addCertificadoYObtenerId(list as any, createPayload);
   }
 
-  // 2. adjunto (opcional)
-  let archivo: string | null = null;
+  // adjunto (opcional)
+  let archivo: string | undefined;
+
   if (file instanceof File) {
     const item = list.items.getById(id);
-    const current = await item.attachmentFiles();
-    if (current?.length) {
-      for (const a of current) {
-        try {
-          await item.attachmentFiles.getByName(a.FileName).delete();
-        } catch {
-          /* ignore */
-        }
+
+    const current = (await item.attachmentFiles()) as Array<{ FileName: string }>;
+    for (const a of current ?? []) {
+      try {
+        await item.attachmentFiles.getByName(a.FileName).delete();
+      } catch {
+        /* ignore */
       }
     }
-    const fname = sanitizeFileName(file.name);
-    const bytes = await file.arrayBuffer();
-    await item.attachmentFiles.add(fname, bytes);
 
-    const withFiles = await item.select("AttachmentFiles/FileName").expand("AttachmentFiles")();
-    archivo = withFiles?.AttachmentFiles?.[0]?.FileName ?? fname;
+    const fname = sanitizeFileName(file.name);
+    await item.attachmentFiles.add(fname, await file.arrayBuffer());
+
+    const withFiles = (await item
+      .select("AttachmentFiles/FileName")
+      .expand("AttachmentFiles")()) as { AttachmentFiles?: Array<{ FileName?: string }> };
+
+    archivo = withFiles.AttachmentFiles?.[0]?.FileName ?? fname;
   }
 
-  return { id, archivo: archivo ?? null };
+  return { id, archivo };
 }
 
 // ======================================================
-// 2) guardar TODOS los certificados derivados de la UI
-//    (llama al de arriba varias veces)
+// 3) guardar TODOS los certificados derivados de la UI
 // ======================================================
+type DocLike = {
+  propFile?: unknown;
+  resBonificacionFile?: unknown;
+  fumigacionDate?: string;
+  fumigacionFile?: unknown;
+  revTecDate?: string;
+  revTecText?: string;
+  revTecFile?: unknown;
+  SanipesDate?: string;
+  SanipesText?: string;
+  sanipesFile?: unknown;
+  termokingDate?: string;
+  termokingFile?: unknown;
+  limpiezaDate?: string;
+  limpiezaFile?: unknown;
+};
+
+const asFile = (v: unknown): File | undefined => (v instanceof File ? v : undefined);
+
 export async function saveCertificadosDeVehiculoSimple(args: {
   placa: string;
-  doc: any;
+  doc: DocLike;
   docsFlags: {
     showTermoking: boolean;
     showSanipes: boolean;
@@ -180,85 +206,78 @@ export async function saveCertificadosDeVehiculoSimple(args: {
 }): Promise<void> {
   const { placa, doc, docsFlags } = args;
 
-  // 1. tarjeta (siempre)
   await upsertCertificadoVehiculo({
     placa,
     tipo: "Tarjeta de propiedad",
-    file: doc.propFile ?? null,
+    file: asFile(doc.propFile),
   });
 
-  // 2. resolución / bonificación
   if (docsFlags.showResBonificacion) {
     await upsertCertificadoVehiculo({
       placa,
       tipo: "Bonificación",
-      file: doc.resBonificacionFile ?? null,
+      file: asFile(doc.resBonificacionFile),
     });
   }
 
-  // 3. fumigación
   if (docsFlags.showFumigacion) {
     await upsertCertificadoVehiculo({
       placa,
       tipo: "Fumigación",
-      emision: doc.fumigacionDate ?? null,
-      file: doc.fumigacionFile ?? null,
+      emision: doc.fumigacionDate,
+      file: asFile(doc.fumigacionFile),
     });
   }
 
-  // 4. revisión técnica (siempre la mostrás)
   await upsertCertificadoVehiculo({
     placa,
     tipo: "Revisión técnica",
-    caducidad: doc.revTecDate ?? null,
-    anio: doc.revTecText ?? null,
-    file: doc.revTecFile ?? null,
+    caducidad: doc.revTecDate,
+    anio: doc.revTecText,
+    file: asFile(doc.revTecFile),
   });
 
-  // 5. sanipes
   if (docsFlags.showSanipes) {
     await upsertCertificadoVehiculo({
       placa,
       tipo: "Sanipes",
-      resolucion: doc.SanipesDate ?? null,
-      expediente: doc.SanipesText ?? null,
-      file: doc.sanipesFile ?? null,
+      resolucion: doc.SanipesDate,
+      expediente: doc.SanipesText,
+      file: asFile(doc.sanipesFile),
     });
   }
 
-  // 6. termoking
   if (docsFlags.showTermoking) {
     await upsertCertificadoVehiculo({
       placa,
       tipo: "Termoking",
-      emision: doc.termokingDate ?? null,
-      file: doc.termokingFile ?? null,
+      emision: doc.termokingDate,
+      file: asFile(doc.termokingFile),
     });
   }
 
-  // 7. limpieza y desinfección
   if (docsFlags.showLimpieza) {
     await upsertCertificadoVehiculo({
       placa,
       tipo: "Limpieza y desinfección",
-      emision: doc.limpiezaDate ?? null,
-      file: doc.limpiezaFile ?? null,
+      emision: doc.limpiezaDate,
+      file: asFile(doc.limpiezaFile),
     });
   }
 }
 
 // ======================================================
-// 3) listado simple (para la grilla)
+// 4) listado simple (para la grilla) - sin null
 // ======================================================
 export type CertRow = {
   id: number;
   tipo: string;
-  emision?: string | null;
-  caducidad?: string | null;
-  resolucion?: string | null;
-  anio?: string | number | null;
-  expediente?: string | null;
-  archivo?: string | null;
+  emision?: string;
+  caducidad?: string;
+  resolucion?: string;
+  anio?: string | number;
+  expediente?: string;
+  archivo?: string;
 };
 
 export async function getCertificadosListado(
@@ -266,31 +285,31 @@ export async function getCertificadosListado(
   listTitle: string = LISTS.Certificados
 ): Promise<CertRow[]> {
   const sp = SP();
-  const items: any[] = await sp.web.lists
+  const items = (await sp.web.lists
     .getByTitle(listTitle)
     .items.select(
       `Id,${CERT_FIELDS.Title},${CERT_FIELDS.Certificado},${CERT_FIELDS.Emision},${CERT_FIELDS.Caducidad},${CERT_FIELDS.Anio},${CERT_FIELDS.Resolucion},${CERT_FIELDS.Expediente},AttachmentFiles/FileName`
     )
     .expand("AttachmentFiles")
     .filter(`${CERT_FIELDS.Title} eq '${esc(placa)}'`)
-    .orderBy("Id", false)();
+    .orderBy("Id", false)()) as Array<
+    Record<string, unknown> & { Id: number; AttachmentFiles?: Array<{ FileName?: string }> }
+  >;
 
-  const rows: CertRow[] = items.map((it) => ({
+  return items.map((it) => ({
     id: it.Id,
-    tipo: (it[CERT_FIELDS.Certificado] || "").toString(),
-    emision: it[CERT_FIELDS.Emision] ?? null,
-    caducidad: it[CERT_FIELDS.Caducidad] ?? null,
-    resolucion: it[CERT_FIELDS.Resolucion] ?? null,
-    anio: it[CERT_FIELDS.Anio] ?? null,
-    expediente: it[CERT_FIELDS.Expediente] ?? null,
-    archivo: it.AttachmentFiles?.[0]?.FileName ?? null,
+    tipo: String(it[CERT_FIELDS.Certificado] ?? ""),
+    emision: it[CERT_FIELDS.Emision] !== undefined ? String(it[CERT_FIELDS.Emision]) : undefined,
+    caducidad: it[CERT_FIELDS.Caducidad] !== undefined ? String(it[CERT_FIELDS.Caducidad]) : undefined,
+    resolucion: it[CERT_FIELDS.Resolucion] !== undefined ? String(it[CERT_FIELDS.Resolucion]) : undefined,
+    anio: it[CERT_FIELDS.Anio] as string | number | undefined,
+    expediente: it[CERT_FIELDS.Expediente] !== undefined ? String(it[CERT_FIELDS.Expediente]) : undefined,
+    archivo: it.AttachmentFiles?.[0]?.FileName,
   }));
-
-  return rows;
 }
 
 // ======================================================
-// 4) borrar todo por placa (simple)
+// 5) borrar todo por placa (usa delete() real)
 // ======================================================
 export async function deleteCertificadosPorPlaca(
   placa: string,
@@ -298,7 +317,11 @@ export async function deleteCertificadosPorPlaca(
 ): Promise<void> {
   const sp = SP();
   const list = sp.web.lists.getByTitle(listTitle);
-  const items = await list.items.select("Id").filter(`${CERT_FIELDS.Title} eq '${esc(placa)}'`)();
+
+  const items = (await list.items
+    .select("Id")
+    .filter(`${CERT_FIELDS.Title} eq '${esc(placa)}'`)()) as Array<{ Id: number }>;
+
   for (const it of items) {
     await list.items.getById(it.Id).delete();
   }

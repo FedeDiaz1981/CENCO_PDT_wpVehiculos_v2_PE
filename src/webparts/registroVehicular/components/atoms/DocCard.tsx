@@ -2,17 +2,30 @@ import * as React from "react";
 
 type DocCardProps = {
   title: string;
+
   dateLabel?: string;
   dateValue?: string;
   onDateChange?: (v?: string) => void;
+
+  // restricciones del calendario
+  dateMin?: string; // YYYY-MM-DD
+  dateMax?: string; // YYYY-MM-DD
+
   textLabel?: string;
   textValue?: string;
   onTextChange?: (v?: string) => void;
   textAsDropdown?: boolean;
   textOptions?: { key: string; text: string }[];
-  file?: File;                 // archivo NUEVO (si el usuario adjunta)
-  existingFileName?: string;   // nombre del archivo que ya existe en SP
+
+  file?: File;
+  existingFileName?: string;
   onFileChange?: (f?: File) => void;
+
+  // Marcado visual de requerido faltante
+  invalid?: boolean;
+
+  // NUEVO: para NO marcar al cargar, solo después de intentar guardar
+  showValidation?: boolean;
 };
 
 export const DocCard: React.FC<DocCardProps> = ({
@@ -20,16 +33,20 @@ export const DocCard: React.FC<DocCardProps> = ({
   dateLabel,
   dateValue,
   onDateChange,
+  dateMin,
+  dateMax,
   textLabel,
   textValue,
   onTextChange,
   textAsDropdown,
   textOptions,
   file,
-  existingFileName, // <-- agregado al destructuring
+  existingFileName,
   onFileChange,
+  invalid,
+  showValidation = false,
 }) => {
-  const handleFileChange = () => {
+  const handleFileChange = (): void => {
     const input = document.createElement("input");
     input.type = "file";
     input.onchange = () => {
@@ -39,13 +56,14 @@ export const DocCard: React.FC<DocCardProps> = ({
     input.click();
   };
 
-  // nombre a mostrar: si hay File nuevo, ese; si no, el existente de SP
-  const displayedFileName = file ? file.name : (existingFileName || "");
+  const displayedFileName = file ? file.name : existingFileName || "";
+
+  const showInvalid = !!showValidation && !!invalid;
 
   return (
     <div
       style={{
-        border: "1px solid #ddd",
+        border: showInvalid ? "2px solid #d13438" : "1px solid #ddd",
         borderRadius: 8,
         padding: 12,
         background: "#fff",
@@ -62,8 +80,22 @@ export const DocCard: React.FC<DocCardProps> = ({
           <input
             type="date"
             value={dateValue || ""}
+            min={dateMin}
+            max={dateMax}
             onChange={(e) => {
-              onDateChange?.(e.target.value);
+              const v = e.target.value;
+
+              // Guard rail
+              if (dateMax && v && v > dateMax) {
+                window.alert("La fecha no puede ser mayor a la fecha actual.");
+                return;
+              }
+              if (dateMin && v && v < dateMin) {
+                window.alert("La fecha no puede ser menor a la fecha actual.");
+                return;
+              }
+
+              onDateChange?.(v);
             }}
             style={{
               width: "100%",
@@ -82,9 +114,7 @@ export const DocCard: React.FC<DocCardProps> = ({
           {textAsDropdown ? (
             <select
               value={textValue || ""}
-              onChange={(e) => {
-                onTextChange?.(e.target.value);
-              }}
+              onChange={(e) => onTextChange?.(e.target.value)}
               style={{
                 width: "100%",
                 padding: 6,
@@ -103,9 +133,7 @@ export const DocCard: React.FC<DocCardProps> = ({
             <input
               type="text"
               value={textValue || ""}
-              onChange={(e) => {
-                onTextChange?.(e.target.value);
-              }}
+              onChange={(e) => onTextChange?.(e.target.value)}
               style={{
                 width: "100%",
                 padding: 6,
@@ -121,7 +149,6 @@ export const DocCard: React.FC<DocCardProps> = ({
         <button type="button" onClick={handleFileChange}>
           Adjuntar archivo
         </button>
-        {/* Siempre mostramos algo: el nuevo file o el existente (o "-") */}
         <div style={{ fontSize: 12, marginTop: 4 }}>
           {displayedFileName || "-"}
         </div>

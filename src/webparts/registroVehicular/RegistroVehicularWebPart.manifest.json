@@ -28,7 +28,9 @@
     "Distribuidor": false,
     "Coordinador": false,
     "Transportista": false,
-    "Borrar": false
+    "Borrar": false,
+    "redireccion": false,
+    "urlRedireccion": ""
   }
 }]
 }
