@@ -82,6 +82,30 @@ export const DocCard: React.FC<DocCardProps> = ({
             value={dateValue || ""}
             min={dateMin}
             max={dateMax}
+            inputMode="none"
+            onKeyDown={(e) => {
+              const allowed = [
+                "Tab",
+                "Shift",
+                "Escape",
+                "ArrowLeft",
+                "ArrowRight",
+                "ArrowUp",
+                "ArrowDown",
+                "Home",
+                "End",
+              ];
+              if (allowed.includes(e.key)) return;
+              e.preventDefault();
+            }}
+            onClick={(e) => {
+              const target = e.currentTarget as HTMLInputElement;
+              if (typeof target.showPicker === "function") {
+                target.showPicker();
+              }
+            }}
+            onPaste={(e) => e.preventDefault()}
+            onDrop={(e) => e.preventDefault()}
             onChange={(e) => {
               const v = e.target.value;
 

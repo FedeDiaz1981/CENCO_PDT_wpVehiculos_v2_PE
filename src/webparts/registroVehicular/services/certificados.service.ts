@@ -192,6 +192,12 @@ type DocLike = {
 };
 
 const asFile = (v: unknown): File | undefined => (v instanceof File ? v : undefined);
+const asOptionalText = (v: unknown): string | undefined => {
+  if (v === undefined || v === null) return undefined;
+
+  const value = String(v).trim();
+  return value !== "" ? value : undefined;
+};
 
 export async function saveCertificadosDeVehiculoSimple(args: {
   placa: string;
@@ -237,13 +243,17 @@ export async function saveCertificadosDeVehiculoSimple(args: {
     file: asFile(doc.revTecFile),
   });
 
-  if (docsFlags.showSanipes) {
+  const sanipesDate = asOptionalText(doc.SanipesDate);
+  const sanipesText = asOptionalText(doc.SanipesText);
+  const sanipesFile = asFile(doc.sanipesFile);
+
+  if (docsFlags.showSanipes && (sanipesDate || sanipesText || sanipesFile)) {
     await upsertCertificadoVehiculo({
       placa,
       tipo: "Sanipes",
-      resolucion: doc.SanipesDate,
-      expediente: doc.SanipesText,
-      file: asFile(doc.sanipesFile),
+      resolucion: sanipesDate,
+      expediente: sanipesText,
+      file: sanipesFile,
     });
   }
 

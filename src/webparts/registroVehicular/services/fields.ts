@@ -13,6 +13,8 @@ export const VEH_FIELDS = {
   LargoRampa: "largorampa",
   AnchoRampa: "anchorampa",
   Bonificacion: "bonificacion",
+  RielesLogisticos: "rieleslogisticos",
+  Propiedad: "propiedad",
   Resolucion: "resolucion",
   MedidasInternas: "medidasinternas",
   MedidasExternas: "medidasexternas",

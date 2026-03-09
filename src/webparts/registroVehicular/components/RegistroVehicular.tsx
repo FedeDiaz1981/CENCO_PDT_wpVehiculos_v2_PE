@@ -5,6 +5,8 @@ import {
   ThemeProvider,
   PrimaryButton,
   DefaultButton,
+  Modal,
+  Icon,
   Spinner,
   SpinnerSize,
   TextField,
@@ -37,6 +39,8 @@ type IVehiculoItemFull = IVehiculoItem & {
   LargoRampa?: string;
   AnchoRampa?: string;
   Bonificacion?: boolean;
+  RielesLogisticos?: boolean;
+  Propiedad?: boolean;
   NroResolucion?: string;
   MedidasInternas?: string;
   MedidasExternas?: string;
@@ -85,6 +89,8 @@ const vehiculoInicial: IVehiculoItemFull = {
   LargoRampa: "",
   AnchoRampa: "",
   Bonificacion: false,
+  RielesLogisticos: false,
+  Propiedad: false,
   NroResolucion: "",
   MedidasInternas: "",
   MedidasExternas: "",
@@ -227,6 +233,51 @@ function getDocumentosVisibles(vehiculo: {
     forceRevisionTecnica: true,
   };
 }
+
+const getErrorText = (err: unknown): string => {
+  if (!err) return "";
+  if (typeof err === "string") return err;
+  if (err instanceof Error) return err.message || "";
+
+  const anyErr = err as {
+    message?: string;
+    data?: {
+      message?: string;
+      responseBody?: string;
+      error?: { message?: { value?: string } | string };
+    };
+    response?: { data?: { message?: string } };
+  };
+
+  const innerMessage = anyErr.data?.error?.message;
+  const innerValue =
+    typeof innerMessage === "object" && innerMessage && "value" in innerMessage
+      ? (innerMessage as { value?: string }).value
+      : "";
+
+  return (
+    anyErr.message ||
+    anyErr.data?.message ||
+    innerValue ||
+    (typeof innerMessage === "string" ? innerMessage : "") ||
+    anyErr.data?.responseBody ||
+    anyErr.response?.data?.message ||
+    ""
+  );
+};
+
+const isDuplicatePlacaError = (raw: string): boolean => {
+  const t = (raw || "").toLowerCase();
+  return (
+    t.includes("duplicate") ||
+    t.includes("duplicad") ||
+    t.includes("already exists") ||
+    t.includes("already in use") ||
+    t.includes("ya existe") ||
+    t.includes("valor duplicado") ||
+    t.includes("unique")
+  );
+};
 
 const DocumentacionLiteLocal: React.FC<{
   doc: DocStateLocal;
@@ -592,6 +643,49 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
   const [validationError, setValidationError] = React.useState<
     string | undefined
   >(undefined);
+  const [errorModal, setErrorModal] = React.useState<{
+    title: string;
+    message: string;
+  } | null>(null);
+  const topRef = React.useRef<HTMLDivElement | null>(null);
+  const errorModalStyles = React.useMemo(
+    () => ({
+      container: {
+        padding: "20px 20px 16px",
+        maxWidth: 560,
+        minWidth: 320,
+      } as React.CSSProperties,
+      header: {
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        paddingBottom: 10,
+        marginBottom: 12,
+        borderBottom: `1px solid ${theme.semanticColors.bodyDivider}`,
+      } as React.CSSProperties,
+      icon: {
+        fontSize: 20,
+        color: theme.semanticColors.errorText,
+      } as React.CSSProperties,
+      title: {
+        fontSize: 18,
+        fontWeight: 700,
+        color: theme.semanticColors.bodyText,
+      } as React.CSSProperties,
+      body: {
+        fontSize: 14,
+        lineHeight: 1.45,
+        color: theme.semanticColors.bodyText,
+        marginBottom: 16,
+      } as React.CSSProperties,
+      footer: {
+        display: "flex",
+        justifyContent: "flex-end",
+        gap: 8,
+      } as React.CSSProperties,
+    }),
+    []
+  );
 
   React.useEffect((): void => {
     const hoy = new Date();
@@ -690,46 +784,71 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
     proveedoresUserField,
   ]);
 
+  const resetFormulario = React.useCallback(
+    (
+      nextAccion?: "crear" | "actualizar" | "baja",
+      opts?: { scrollTop?: boolean }
+    ): void => {
+      if (nextAccion) {
+        setAccion(nextAccion);
+      }
+
+      let baseVeh: IVehiculoItemFull = {
+        ...vehiculoInicial,
+        Id: 0,
+        EmpresaId: undefined,
+        Empresa: "",
+        Proveedor: "",
+        CodigoInterno: "",
+        Placa: "",
+        SOAT: "",
+        Marca: "",
+        Modelo: "",
+        Capacidad: "",
+        Otros: "",
+        Rampa: false,
+        LargoRampa: "",
+        AnchoRampa: "",
+        Bonificacion: false,
+        RielesLogisticos: false,
+        Propiedad: false,
+        NroResolucion: "",
+        MedidasInternas: "",
+        MedidasExternas: "",
+        AlturaPiso: "",
+        PesoCargaUtil: "",
+        PesoNeto: "",
+        Temperatura: "",
+        TipoTemperatura: "",
+        TipoUnidad: "",
+        Activo: true,
+        CorreosNotificacion: "",
+      };
+
+      if (empresaBloqueada && empresaUsuarioId) {
+        baseVeh = { ...baseVeh, EmpresaId: empresaUsuarioId };
+      }
+
+      setVehiculo(baseVeh);
+      setDoc({ ...docinicial });
+      setValidationError(undefined);
+      setFechaError(undefined);
+
+      if (opts?.scrollTop) {
+        window.requestAnimationFrame(() => {
+          if (topRef.current) {
+            topRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+          } else {
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }
+        });
+      }
+    },
+    [empresaBloqueada, empresaUsuarioId]
+  );
+
   const onIngresarClick = (): void => {
-    setAccion("crear");
-
-    let baseVeh: IVehiculoItemFull = {
-      ...vehiculoInicial,
-      Id: 0,
-      EmpresaId: undefined,
-      Empresa: "",
-      Proveedor: "",
-      CodigoInterno: "",
-      Placa: "",
-      SOAT: "",
-      Marca: "",
-      Modelo: "",
-      Capacidad: "",
-      Otros: "",
-      Rampa: false,
-      LargoRampa: "",
-      AnchoRampa: "",
-      Bonificacion: false,
-      NroResolucion: "",
-      MedidasInternas: "",
-      MedidasExternas: "",
-      AlturaPiso: "",
-      PesoCargaUtil: "",
-      PesoNeto: "",
-      Temperatura: "",
-      TipoTemperatura: "",
-      TipoUnidad: "",
-      Activo: true,
-      CorreosNotificacion: "",
-    };
-
-    if (empresaBloqueada && empresaUsuarioId) {
-      baseVeh = { ...baseVeh, EmpresaId: empresaUsuarioId };
-    }
-
-    setVehiculo(baseVeh);
-    setDoc({ ...docinicial });
-    setValidationError(undefined);
+    resetFormulario("crear", { scrollTop: true });
   };
 
   const choices = {
@@ -796,7 +915,41 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
     return isNaN(d.getTime()) ? "" : d.toISOString().slice(0, 10);
   };
 
+  const resolveRedirectUrl = React.useCallback(
+    (rawUrl: string): string => {
+      const raw = rawUrl.trim();
+      if (/^https?:\/\//i.test(raw)) return raw;
+
+      const base = spContext.pageContext.web.absoluteUrl.replace(/\/$/, "");
+      const rel = raw.startsWith("/") ? raw : `/${raw}`;
+      return `${base}${rel}`;
+    },
+    [spContext]
+  );
+
+  const redirectContainingPage = React.useCallback((targetUrl: string): void => {
+    const tryAssign = (targetWindow: Window | null | undefined): boolean => {
+      if (!targetWindow) return false;
+
+      try {
+        targetWindow.location.assign(targetUrl);
+        return true;
+      } catch (err) {
+        console.warn("No se pudo redirigir la ventana contenedora.", err);
+        return false;
+      }
+    };
+
+    if (window.top && window.top !== window && tryAssign(window.top)) return;
+    if (window.parent && window.parent !== window && tryAssign(window.parent)) {
+      return;
+    }
+
+    window.location.assign(targetUrl);
+  }, []);
+
   const onGuardar = React.useCallback(async (): Promise<void> => {
+    setErrorModal(null);
     if (accion === "baja") {
       let motivo: string | undefined = "";
       let ok = false;
@@ -899,7 +1052,7 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
     req(vehiculo.Capacidad, "Capacidad", "Capacidad");
     req(vehiculo.MedidasInternas, "Medida interna", "MedidasInternas");
     req(vehiculo.MedidasExternas, "Medida externa", "MedidasExternas");
-    req(vehiculo.AlturaPiso, "Altura de piso", "AlturaPiso");
+    req(vehiculo.AlturaPiso, "Altura de piso a furgón", "AlturaPiso");
     req(vehiculo.PesoCargaUtil, "Peso útil", "PesoCargaUtil");
     req(vehiculo.PesoNeto, "Peso bruto", "PesoNeto");
 
@@ -1001,6 +1154,7 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
       setBusy(true);
 
       const placa = (vehiculo.Placa || "").trim();
+      let vehiculoGuardado = false;
       const item: Record<string, unknown> = {
         [VEH_FIELDS.Title]: vehiculo.Placa || "",
         [VEH_FIELDS.SOAT]: vehiculo.SOAT || "",
@@ -1013,6 +1167,8 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
         [VEH_FIELDS.LargoRampa]: vehiculo.LargoRampa || "",
         [VEH_FIELDS.AnchoRampa]: vehiculo.AnchoRampa || "",
         [VEH_FIELDS.Bonificacion]: !!vehiculo.Bonificacion,
+        [VEH_FIELDS.RielesLogisticos]: !!vehiculo.RielesLogisticos,
+        [VEH_FIELDS.Propiedad]: !!vehiculo.Propiedad,
         [VEH_FIELDS.Resolucion]: vehiculo.NroResolucion || "",
         [VEH_FIELDS.MedidasInternas]: vehiculo.MedidasInternas || "",
         [VEH_FIELDS.MedidasExternas]: vehiculo.MedidasExternas || "",
@@ -1039,28 +1195,49 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
       } else {
         await vehList.items.add(item as Record<string, unknown>);
       }
+      vehiculoGuardado = true;
 
       if (!Transportista) {
-        await saveCertificadosDeVehiculoSimple({ placa, doc, docsFlags });
+        try {
+          await saveCertificadosDeVehiculoSimple({ placa, doc, docsFlags });
+        } catch (errDocs) {
+          console.error("Error al guardar certificados", errDocs);
+          if (vehiculoGuardado) {
+            setErrorModal({
+              title: "Guardado parcial",
+              message:
+                "El vehículo se guardó, pero hubo un error al guardar la documentación. Intentá nuevamente.",
+            });
+          }
+          return;
+        }
       }
 
       alert("Vehículo y certificados guardados correctamente.");
 
       if (redireccion && urlRedireccion && urlRedireccion.trim()) {
-        const raw = urlRedireccion.trim();
-
-        if (/^https?:\/\//i.test(raw)) {
-          window.location.assign(raw);
-          return;
-        }
-
-        const base = spContext.pageContext.web.absoluteUrl.replace(/\/$/, "");
-        const rel = raw.startsWith("/") ? raw : `/${raw}`;
-        window.location.assign(`${base}${rel}`);
+        redirectContainingPage(resolveRedirectUrl(urlRedireccion));
+        return;
       }
+
+      resetFormulario(undefined, { scrollTop: true });
     } catch (err) {
       console.error("Error al guardar vehículo o certificados", err);
-      alert("Error al guardar. Revisá consola.");
+      const raw = getErrorText(err);
+      const placa = (vehiculo.Placa || "").trim();
+
+      if (isDuplicatePlacaError(raw) && placa) {
+        setErrorModal({
+          title: "Error al guardar",
+          message: `Error, no se puede hacer un doble registro de un vehículo con placa ${placa}.`,
+        });
+      } else {
+        setErrorModal({
+          title: "Error al guardar",
+          message:
+            "Ocurrió un error al guardar el vehículo. Verificá los datos e intentá nuevamente.",
+        });
+      }
     } finally {
       setBusy(false);
     }
@@ -1076,7 +1253,10 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
     redireccion,
     urlRedireccion,
     spContext,
+    redirectContainingPage,
+    resolveRedirectUrl,
     deleteVehiculoYCertificados,
+    resetFormulario,
   ]);
 
   const onCancelar = React.useCallback((): void => {
@@ -1101,6 +1281,8 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
         LargoRampa: veh.LargoRampa || "",
         AnchoRampa: veh.AnchoRampa || "",
         Bonificacion: !!veh.Bonificacion,
+        RielesLogisticos: !!veh.RielesLogisticos,
+        Propiedad: !!veh.Propiedad,
         NroResolucion: veh.NroResolucion || "",
         MedidasInternas: veh.MedidasInternas || "",
         MedidasExternas: veh.MedidasExternas || "",
@@ -1226,6 +1408,8 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
           VEH_FIELDS.LargoRampa,
           VEH_FIELDS.AnchoRampa,
           VEH_FIELDS.Bonificacion,
+          VEH_FIELDS.RielesLogisticos,
+          VEH_FIELDS.Propiedad,
           VEH_FIELDS.Resolucion,
           VEH_FIELDS.MedidasInternas,
           VEH_FIELDS.MedidasExternas,
@@ -1278,6 +1462,8 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
           LargoRampa: String(anyIt[VEH_FIELDS.LargoRampa] ?? ""),
           AnchoRampa: String(anyIt[VEH_FIELDS.AnchoRampa] ?? ""),
           Bonificacion: anyIt[VEH_FIELDS.Bonificacion] === true,
+          RielesLogisticos: anyIt[VEH_FIELDS.RielesLogisticos] === true,
+          Propiedad: anyIt[VEH_FIELDS.Propiedad] === true,
           NroResolucion: String(anyIt[VEH_FIELDS.Resolucion] ?? ""),
           MedidasInternas: String(anyIt[VEH_FIELDS.MedidasInternas] ?? ""),
           MedidasExternas: String(anyIt[VEH_FIELDS.MedidasExternas] ?? ""),
@@ -1419,7 +1605,7 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
     req(vehiculo.Capacidad, "Capacidad", "Capacidad");
     req(vehiculo.MedidasInternas, "Medida interna", "MedidasInternas");
     req(vehiculo.MedidasExternas, "Medida externa", "MedidasExternas");
-    req(vehiculo.AlturaPiso, "Altura de piso", "AlturaPiso");
+    req(vehiculo.AlturaPiso, "Altura de piso a furgón", "AlturaPiso");
     req(vehiculo.PesoCargaUtil, "Peso útil", "PesoCargaUtil");
     req(vehiculo.PesoNeto, "Peso bruto", "PesoNeto");
 
@@ -1458,11 +1644,34 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
   return (
     <ThemeProvider theme={theme}>
       <div className={classes.root} aria-busy={busy}>
+        <div ref={topRef} />
         {busy && (
           <div className={classes.overlay} role="alert" aria-live="assertive">
             <Spinner label="Guardando..." size={SpinnerSize.large} />
           </div>
         )}
+
+        <Modal
+          isOpen={!!errorModal}
+          onDismiss={() => setErrorModal(null)}
+          isBlocking={false}
+        >
+          <div style={errorModalStyles.container}>
+            <div style={errorModalStyles.header}>
+              <Icon iconName="StatusErrorFull" style={errorModalStyles.icon} />
+              <div style={errorModalStyles.title}>
+                {errorModal?.title || "Error"}
+              </div>
+            </div>
+            <div style={errorModalStyles.body}>{errorModal?.message}</div>
+            <div style={errorModalStyles.footer}>
+              <PrimaryButton
+                text="Cerrar"
+                onClick={() => setErrorModal(null)}
+              />
+            </div>
+          </div>
+        </Modal>
 
         <div className={`${classes.page} ${busy ? classes.busyMask : ""}`}>
           <div className={classes.actions}>

@@ -32,6 +32,8 @@ type VehiculoExt = {
   LargoRampa?: string;
   AnchoRampa?: string;
   Bonificacion?: boolean;
+  RielesLogisticos?: boolean;
+  Propiedad?: boolean;
   NroResolucion?: string;
   MedidasInternas?: string;
   MedidasExternas?: string;
@@ -161,7 +163,7 @@ const DatosVehiculo: React.FC<{
       "Capacidad otros": "Otros",
       "Medida interna": "MedidasInternas",
       "Medida externa": "MedidasExternas",
-      "Altura de piso": "AlturaPiso",
+      "Altura de piso a furgón": "AlturaPiso",
       "Peso útil": "PesoCargaUtil",
       "Peso bruto": "PesoNeto",
       "Largo de rampa": "LargoRampa",
@@ -653,6 +655,39 @@ const DatosVehiculo: React.FC<{
         <div />
       </div>
 
+      {/* Rieles logísticos / Propiedad */}
+      <div className={classes.grid3}>
+        <div className={classes.fieldCell}>
+          <div className={classes.fieldLabel}>¿Cuenta con rieles logísticos?</div>
+          <Toggle
+            checked={!!safeVehiculo.RielesLogisticos}
+            onChange={(_e, c) =>
+              setVehiculo((s) => ({
+                ...(s || {}),
+                RielesLogisticos: !!c,
+              }))
+            }
+            disabled={disabled}
+          />
+        </div>
+
+        <div className={classes.fieldCell}>
+          <div className={classes.fieldLabel}>¿La unidad es propiedad?</div>
+          <Toggle
+            checked={!!safeVehiculo.Propiedad}
+            onChange={(_e, c) =>
+              setVehiculo((s) => ({
+                ...(s || {}),
+                Propiedad: !!c,
+              }))
+            }
+            disabled={disabled}
+          />
+        </div>
+
+        <div />
+      </div>
+
       {/* Medidas */}
       <div className={classes.grid3}>
         <TextField
@@ -690,7 +725,7 @@ const DatosVehiculo: React.FC<{
               className={classes.fieldLabel}
               style={{ display: "flex", alignItems: "center", gap: 6 }}
             >
-              <span>Altura del piso *</span>
+              <span>Altura de piso a furgón *</span>
               <IconButton
                 iconProps={{ iconName: "Info" }}
                 title="Ver referencia"
@@ -760,7 +795,9 @@ const DatosVehiculo: React.FC<{
               marginBottom: 8,
             }}
           >
-            <div style={{ fontWeight: 600 }}>Altura del piso — Referencia</div>
+            <div style={{ fontWeight: 600 }}>
+              Altura de piso a furgón — Referencia
+            </div>
             <IconButton
               iconProps={{ iconName: "Cancel" }}
               aria-label="Cerrar"
@@ -769,7 +806,7 @@ const DatosVehiculo: React.FC<{
           </div>
           <img
             src={alturaHelpUrl}
-            alt="altura del piso"
+            alt="altura de piso a furgón"
             style={{
               maxWidth: "100%",
               height: "auto",
