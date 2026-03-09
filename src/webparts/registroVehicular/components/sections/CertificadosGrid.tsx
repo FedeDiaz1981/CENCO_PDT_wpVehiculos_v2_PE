@@ -16,7 +16,11 @@ import {
   getCertificadosListado,
   CertRow,
 } from "../../services/certificados.service";
-import { classes } from "../../ui/styles";
+import {
+  classes,
+  primaryButtonStyles,
+  secondaryButtonStyles,
+} from "../../ui/styles";
 
 type RowEx = CertRow & {
   _newFile?: File | null;
@@ -204,6 +208,7 @@ export const CertificadosGrid: React.FC<{
                       text={r._newFile ? "Cambiar archivo" : "Adjuntar"}
                       onClick={() => !disabled && document.getElementById(id)?.click()}
                       disabled={disabled}
+                      styles={secondaryButtonStyles}
                     />
                     {r._newFile && (
                       <span className={classes.certFileInputName}>
@@ -219,12 +224,14 @@ export const CertificadosGrid: React.FC<{
                       text="Deshacer"
                       onClick={() => onUndo(r)}
                       disabled={disabled}
+                      styles={secondaryButtonStyles}
                     />
                   ) : (
                     <PrimaryButton
                       text="Confirmar"
                       disabled={!canConfirm}
                       onClick={() => onConfirmReplace(r)}
+                      styles={primaryButtonStyles}
                     />
                   )}
                 </div>

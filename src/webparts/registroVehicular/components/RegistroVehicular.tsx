@@ -7,17 +7,24 @@ import {
   DefaultButton,
   Modal,
   Icon,
-  Spinner,
-  SpinnerSize,
+  MessageBar,
+  MessageBarType,
+  ProgressIndicator,
   TextField,
   Stack,
   Separator,
 } from "@fluentui/react";
 import { WebPartContext } from "@microsoft/sp-webpart-base";
 
-import { classes, theme } from "../ui/styles";
+import {
+  classes,
+  theme,
+  primaryButtonStyles,
+  secondaryButtonStyles,
+} from "../ui/styles";
 import DatosVehiculo from "./sections/DatosVehiculo";
 import { VehiculosGrid } from "./sections/VehiculosGrid";
+import { ActionTile } from "./atoms/ActionTile";
 import { DocCard } from "./atoms/DocCard";
 import { LISTS, VEH_FIELDS } from "../services/fields";
 import {
@@ -338,6 +345,10 @@ const DocumentacionLiteLocal: React.FC<{
       style={disabled ? { opacity: 0.6 } : undefined}
     >
       <div className={classes.cardHeader}>
+        <Icon
+          iconName="Page"
+          styles={{ root: { fontSize: 20, color: theme.palette.themePrimary } }}
+        />
         <div className={classes.cardTitle}>2- Documentación</div>
       </div>
       <Separator />
@@ -515,12 +526,16 @@ const Notificaciones: React.FC<{
   return (
     <div className={classes.card}>
       <div className={classes.cardHeader}>
+        <Icon
+          iconName="Mail"
+          styles={{ root: { fontSize: 20, color: theme.palette.themePrimary } }}
+        />
         <div className={classes.cardTitle}>Notificaciones</div>
       </div>
 
-      <div style={{ padding: 16 }}>
+      <div style={{ paddingTop: 4 }}>
         <Stack tokens={{ childrenGap: 12 }}>
-          <Stack.Item grow>
+          <Stack.Item grow className={classes.fieldCell}>
             <TextField
               label="Correos de notificación"
               placeholder="correo1@dominio.com; correo2@dominio.com"
@@ -539,33 +554,6 @@ const Notificaciones: React.FC<{
         </Stack>
       </div>
     </div>
-  );
-};
-
-const ActionTile: React.FC<{
-  icon?: string;
-  label: string;
-  selected: boolean;
-  disabled?: boolean;
-  onClick: () => void;
-}> = ({ label, selected, disabled, onClick }) => {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      style={{
-        cursor: disabled ? "default" : "pointer",
-        minWidth: 120,
-        padding: "12px 16px",
-        borderRadius: 8,
-        border: selected ? "2px solid #0078d4" : "1px solid #ccc",
-        background: selected ? "#eef6ff" : "#fff",
-        fontWeight: selected ? 600 : 400,
-      }}
-    >
-      {label}
-    </button>
   );
 };
 
@@ -1647,7 +1635,11 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
         <div ref={topRef} />
         {busy && (
           <div className={classes.overlay} role="alert" aria-live="assertive">
-            <Spinner label="Guardando..." size={SpinnerSize.large} />
+            <div className={classes.progressPanel}>
+              <ProgressIndicator
+                label={accion === "baja" ? "Procesando baja..." : "Guardando..."}
+              />
+            </div>
           </div>
         )}
 
@@ -1668,41 +1660,58 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
               <PrimaryButton
                 text="Cerrar"
                 onClick={() => setErrorModal(null)}
+                styles={secondaryButtonStyles}
               />
             </div>
           </div>
         </Modal>
 
         <div className={`${classes.page} ${busy ? classes.busyMask : ""}`}>
-          <div className={classes.actions}>
-            <ActionTile
-              label="Ingresar"
-              selected={accion === "crear"}
-              disabled={busy}
-              onClick={onIngresarClick}
-            />
+          <div className={classes.heroCard}>
+            <div className={classes.heroHeader}>
+              <div className={classes.heroIcon}>
+                <Icon
+                  iconName="Car"
+                  styles={{ root: { fontSize: 24, color: theme.palette.white } }}
+                />
+              </div>
+              <div>
+                <div className={classes.heroTitle}>Vehiculo</div>
+              </div>
+            </div>
+            <div className={classes.actions}>
+              <ActionTile
+                icon="Add"
+                label="Ingresar"
+                selected={accion === "crear"}
+                disabled={busy}
+                onClick={onIngresarClick}
+              />
 
-            <ActionTile
-              label="Modificar"
-              selected={accion === "actualizar"}
-              disabled={busy}
-              onClick={(): void => {
-                setAccion("actualizar");
-                setModo("MODIFICAR");
-                cargarVehiculos().catch((e) => console.error(e));
-              }}
-            />
+              <ActionTile
+                icon="Edit"
+                label="Modificar"
+                selected={accion === "actualizar"}
+                disabled={busy}
+                onClick={(): void => {
+                  setAccion("actualizar");
+                  setModo("MODIFICAR");
+                  cargarVehiculos().catch((e) => console.error(e));
+                }}
+              />
 
-            <ActionTile
-              label="Dar de baja"
-              selected={accion === "baja"}
-              disabled={busy}
-              onClick={(): void => {
-                setAccion("baja");
-                setModo("BAJA");
-                cargarVehiculos().catch((e) => console.error(e));
-              }}
-            />
+              <ActionTile
+                icon="Delete"
+                label="Dar de baja"
+                selected={accion === "baja"}
+                disabled={busy}
+                onClick={(): void => {
+                  setAccion("baja");
+                  setModo("BAJA");
+                  cargarVehiculos().catch((e) => console.error(e));
+                }}
+              />
+            </div>
           </div>
 
           {accion !== "crear" && (modo === "MODIFICAR" || modo === "BAJA") && (
@@ -1777,15 +1786,18 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
           />
 
           {fechaError && accion !== "baja" && (
-            <div style={{ color: "red", marginTop: 12, fontWeight: 600 }}>
+            <MessageBar
+              messageBarType={MessageBarType.error}
+              isMultiline={false}
+            >
               {fechaError}
-            </div>
+            </MessageBar>
           )}
 
           {validationError && accion !== "baja" && (
-            <div style={{ color: "red", marginTop: 8, fontWeight: 600 }}>
+            <MessageBar messageBarType={MessageBarType.error} isMultiline>
               {validationError}
-            </div>
+            </MessageBar>
           )}
 
           <div className={classes.footer}>
@@ -1798,6 +1810,14 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
                   : "GUARDAR"
               }
               onClick={onGuardar}
+              iconProps={{
+                iconName:
+                  accion === "baja"
+                    ? "Delete"
+                    : accion === "actualizar"
+                    ? "Save"
+                    : "Save",
+              }}
               disabled={
                 busy ||
                 (accion !== "baja" &&
@@ -1805,11 +1825,14 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
                     missingRequiredLabels.length > 0 ||
                     missingDocsRequiredLabels.length > 0))
               }
+              styles={primaryButtonStyles}
             />
             <DefaultButton
               text="Cancelar"
               onClick={onCancelar}
+              iconProps={{ iconName: "Clear" }}
               disabled={busy}
+              styles={secondaryButtonStyles}
             />
           </div>
         </div>

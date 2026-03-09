@@ -1,8 +1,10 @@
 // VehiculosGrid.tsx
 import * as React from "react";
 import { IVehiculoItem } from "../../services/vehiculos.service";
-import { classes } from "../../ui/styles";
-import { Icon } from "@fluentui/react";
+import { classes, secondaryButtonStyles, theme } from "../../ui/styles";
+import { DefaultButton, Icon } from "@fluentui/react";
+
+const GRID_PAGE_SIZE = 10;
 
 const thStyle: React.CSSProperties = {
   textAlign: "left",
@@ -34,6 +36,7 @@ interface Props {
 export const VehiculosGrid: React.FC<Props> = ({ vehiculos, onRowDoubleClick }) => {
   // filtro local
   const [filtro, setFiltro] = React.useState<string>("");
+  const [pagina, setPagina] = React.useState<number>(1);
 
   // lista filtrada
   const listaFiltrada = React.useMemo(() => {
@@ -53,6 +56,24 @@ export const VehiculosGrid: React.FC<Props> = ({ vehiculos, onRowDoubleClick }) 
       );
     });
   }, [vehiculos, filtro]);
+
+  const totalPaginas = React.useMemo(
+    () => Math.max(1, Math.ceil(listaFiltrada.length / GRID_PAGE_SIZE)),
+    [listaFiltrada.length]
+  );
+
+  const listaPaginada = React.useMemo(() => {
+    const inicio = (pagina - 1) * GRID_PAGE_SIZE;
+    return listaFiltrada.slice(inicio, inicio + GRID_PAGE_SIZE);
+  }, [listaFiltrada, pagina]);
+
+  React.useEffect(() => {
+    setPagina(1);
+  }, [filtro, vehiculos]);
+
+  React.useEffect(() => {
+    setPagina((prev) => Math.min(prev, totalPaginas));
+  }, [totalPaginas]);
 
   return (
     <div className={classes.card} style={{ marginBottom: 16 }}>
@@ -106,7 +127,7 @@ export const VehiculosGrid: React.FC<Props> = ({ vehiculos, onRowDoubleClick }) 
             </tr>
           </thead>
           <tbody>
-            {listaFiltrada.map(v => (
+            {listaPaginada.map(v => (
               <tr
                 key={v.Id}
                 style={trStyle}
@@ -139,6 +160,50 @@ export const VehiculosGrid: React.FC<Props> = ({ vehiculos, onRowDoubleClick }) 
           </tbody>
         </table>
       </div>
+
+      {listaFiltrada.length > 0 && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+            flexWrap: "wrap",
+            marginTop: 12,
+          }}
+        >
+          <div style={{ fontSize: 13, color: theme.palette.neutralSecondary }}>
+            Mostrando {(pagina - 1) * GRID_PAGE_SIZE + 1}-
+            {Math.min(pagina * GRID_PAGE_SIZE, listaFiltrada.length)} de {listaFiltrada.length}
+          </div>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              flexWrap: "wrap",
+            }}
+          >
+            <DefaultButton
+              text="Anterior"
+              iconProps={{ iconName: "ChevronLeft" }}
+              onClick={() => setPagina((prev) => Math.max(1, prev - 1))}
+              disabled={pagina === 1}
+              styles={secondaryButtonStyles}
+            />
+            <div style={{ fontSize: 13, fontWeight: 600, color: theme.palette.neutralPrimary }}>
+              Página {pagina} de {totalPaginas}
+            </div>
+            <DefaultButton
+              text="Siguiente"
+              iconProps={{ iconName: "ChevronRight" }}
+              onClick={() => setPagina((prev) => Math.min(totalPaginas, prev + 1))}
+              disabled={pagina === totalPaginas}
+              styles={secondaryButtonStyles}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };
