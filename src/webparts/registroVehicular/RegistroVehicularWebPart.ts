@@ -117,7 +117,7 @@ export default class RegistroVehicularWebPart extends BaseClientSideWebPart<IReg
               groupName: "Ayudas",
               groupFields: [
                 PropertyPaneTextField("alturaPisoHelpImageUrl", {
-                  label: "URL imagen ayuda (Altura de piso a furgón)",
+                  label: "URL imagen ayuda (Altura de piso al furgón)",
                   placeholder: "https://.../Altura.png",
                 }),
               ],

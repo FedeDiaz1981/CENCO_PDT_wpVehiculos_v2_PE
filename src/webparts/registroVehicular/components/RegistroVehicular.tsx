@@ -1040,7 +1040,7 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
     req(vehiculo.Capacidad, "Capacidad", "Capacidad");
     req(vehiculo.MedidasInternas, "Medida interna", "MedidasInternas");
     req(vehiculo.MedidasExternas, "Medida externa", "MedidasExternas");
-    req(vehiculo.AlturaPiso, "Altura de piso a furgón", "AlturaPiso");
+    req(vehiculo.AlturaPiso, "Altura de piso al furgón", "AlturaPiso");
     req(vehiculo.PesoCargaUtil, "Peso útil", "PesoCargaUtil");
     req(vehiculo.PesoNeto, "Peso bruto", "PesoNeto");
 
@@ -1593,7 +1593,7 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
     req(vehiculo.Capacidad, "Capacidad", "Capacidad");
     req(vehiculo.MedidasInternas, "Medida interna", "MedidasInternas");
     req(vehiculo.MedidasExternas, "Medida externa", "MedidasExternas");
-    req(vehiculo.AlturaPiso, "Altura de piso a furgón", "AlturaPiso");
+    req(vehiculo.AlturaPiso, "Altura de piso al furgón", "AlturaPiso");
     req(vehiculo.PesoCargaUtil, "Peso útil", "PesoCargaUtil");
     req(vehiculo.PesoNeto, "Peso bruto", "PesoNeto");
 

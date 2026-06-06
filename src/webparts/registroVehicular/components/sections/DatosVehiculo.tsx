@@ -164,6 +164,7 @@ const DatosVehiculo: React.FC<{
       "Medida interna": "MedidasInternas",
       "Medida externa": "MedidasExternas",
       "Altura de piso a furgón": "AlturaPiso",
+      "Altura de piso al furgón": "AlturaPiso",
       "Peso útil": "PesoCargaUtil",
       "Peso bruto": "PesoNeto",
       "Largo de rampa": "LargoRampa",
@@ -691,7 +692,7 @@ const DatosVehiculo: React.FC<{
       {/* Medidas */}
       <div className={classes.grid3}>
         <TextField
-          label="Medidas internas *"
+          label="Medidas Internas Furgón (LxAxH) *"
           value={safeVehiculo.MedidasInternas || ""}
           onChange={setText("MedidasInternas")}
           disabled={disabled}
@@ -703,7 +704,7 @@ const DatosVehiculo: React.FC<{
         />
 
         <TextField
-          label="Medidas externas *"
+          label="Medidas Externas del Camión (LxAxH) *"
           value={safeVehiculo.MedidasExternas || ""}
           onChange={setText("MedidasExternas")}
           disabled={disabled}
@@ -725,7 +726,7 @@ const DatosVehiculo: React.FC<{
               className={classes.fieldLabel}
               style={{ display: "flex", alignItems: "center", gap: 6 }}
             >
-              <span>Altura de piso a furgón *</span>
+              <span>Altura de piso al furgón *</span>
               <IconButton
                 iconProps={{ iconName: "Info" }}
                 title="Ver referencia"
@@ -796,7 +797,7 @@ const DatosVehiculo: React.FC<{
             }}
           >
             <div style={{ fontWeight: 600 }}>
-              Altura de piso a furgón — Referencia
+              Altura de piso al furgón — Referencia
             </div>
             <IconButton
               iconProps={{ iconName: "Cancel" }}
@@ -806,7 +807,7 @@ const DatosVehiculo: React.FC<{
           </div>
           <img
             src={alturaHelpUrl}
-            alt="altura de piso a furgón"
+            alt="altura de piso al furgón"
             style={{
               maxWidth: "100%",
               height: "auto",
