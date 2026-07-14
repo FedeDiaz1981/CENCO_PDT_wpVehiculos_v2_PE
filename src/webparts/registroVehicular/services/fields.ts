@@ -25,6 +25,7 @@ export const VEH_FIELDS = {
   TipoTemperatura: "Tipo_x0020_Temperatura",
   TipoUnidad: "Tipo_x0020_de_x0020_unidad",
   Activo: "activo",
+  Final: "final",
   Correos: "correosnotificacion",
 } as const;
 

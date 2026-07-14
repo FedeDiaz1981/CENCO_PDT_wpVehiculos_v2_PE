@@ -49,6 +49,7 @@ type IVehiculoItemFull = IVehiculoItem & {
   Marca?: string;
   Modelo?: string;
   Codigo?: string;
+  Final?: boolean;
   Capacidad?: string;
   Otros?: string;
   Rampa?: boolean;
@@ -1331,6 +1332,28 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
       return;
     }
 
+    if (accion === "actualizar" && vehiculo.Id && vehiculo.Id > 0) {
+      try {
+        const current = (await sp.web.lists
+          .getByTitle(LISTS.Vehiculos)
+          .items.getById(vehiculo.Id)
+          .select("Id", VEH_FIELDS.Final)()) as Record<string, unknown>;
+
+        if (current && current[VEH_FIELDS.Final] === false) {
+          alert(
+            "No se puede modificar un vehículo finalizado. Actualizá la grilla e intentá nuevamente."
+          );
+          return;
+        }
+      } catch (err) {
+        console.error("No se pudo verificar el estado final del vehículo", err);
+        alert(
+          "No se pudo verificar el estado actual del vehículo. Volvé a intentar."
+        );
+        return;
+      }
+    }
+
     const errores: string[] = [];
     const isLockedField = (name: string): boolean =>
       (lockedFields || []).includes(name);
@@ -1612,8 +1635,139 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
     window.location.reload();
   }, [isModalDriven, notifyModalClose]);
 
+  const cargarVehiculos = React.useCallback(
+    async (opts?: { includeFinalizados?: boolean }): Promise<void> => {
+      const includeFinalizados = opts?.includeFinalizados ?? false;
+
+    try {
+      let req = sp.web.lists
+        .getByTitle(LISTS.Vehiculos)
+        .items.select(
+          "Id",
+          VEH_FIELDS.Title,
+          VEH_FIELDS.SOAT,
+          VEH_FIELDS.Codigo,
+          VEH_FIELDS.Marca,
+          VEH_FIELDS.Modelo,
+          VEH_FIELDS.Capacidad,
+          VEH_FIELDS.CapacidadOtros,
+          VEH_FIELDS.Rampa,
+          VEH_FIELDS.LargoRampa,
+          VEH_FIELDS.AnchoRampa,
+          VEH_FIELDS.Bonificacion,
+          VEH_FIELDS.RielesLogisticos,
+          VEH_FIELDS.Propiedad,
+          VEH_FIELDS.Resolucion,
+          VEH_FIELDS.MedidasInternas,
+          VEH_FIELDS.MedidasExternas,
+          VEH_FIELDS.AlturaPiso,
+          VEH_FIELDS.PesoCargaUtil,
+          VEH_FIELDS.PesoBruto,
+          VEH_FIELDS.Temperatura,
+          VEH_FIELDS.TipoTemperatura,
+          VEH_FIELDS.TipoUnidad,
+          VEH_FIELDS.Activo,
+          VEH_FIELDS.Final,
+          VEH_FIELDS.Correos,
+          `${VEH_FIELDS.Proveedor}/Id`,
+          `${VEH_FIELDS.Proveedor}/Title`
+        )
+        .expand(VEH_FIELDS.Proveedor);
+
+      const filtros: string[] = [`${VEH_FIELDS.Activo} eq 1`];
+      if (!includeFinalizados) {
+        filtros.push(`${VEH_FIELDS.Final} eq 1`);
+      }
+      if ((Proveedor || !!Transportista) && empresaUsuarioId) {
+        filtros.push(`${VEH_FIELDS.Proveedor}/Id eq ${empresaUsuarioId}`);
+      }
+      if (filtros.length > 0) {
+        req = req.filter(filtros.join(" and "));
+      }
+
+      const items = (await req.top(500)()) as Array<Record<string, unknown>>;
+
+      const cleanHtml = (v: unknown): string =>
+        String(v ?? "")
+          .replace(/<[^>]*>/g, "")
+          .replace(/&nbsp;/gi, " ")
+          .trim();
+
+      const mapped: IVehiculoItemFull[] = items.map((it) => {
+        const anyIt = it as Record<string, unknown> & {
+          Id?: number;
+          Proveedor?: { Title?: string; Id?: number };
+        };
+
+        return {
+          Id: Number(anyIt.Id || 0),
+          Title: String(anyIt[VEH_FIELDS.Title] ?? ""),
+          Proveedor: String(anyIt.Proveedor?.Title ?? ""),
+          SOAT: String(anyIt[VEH_FIELDS.SOAT] ?? ""),
+          CodigoInterno: String(anyIt[VEH_FIELDS.Codigo] ?? ""),
+          Marca: String(anyIt[VEH_FIELDS.Marca] ?? ""),
+          Modelo: String(anyIt[VEH_FIELDS.Modelo] ?? ""),
+          Capacidad: String(anyIt[VEH_FIELDS.Capacidad] ?? ""),
+          Otros: String(anyIt[VEH_FIELDS.CapacidadOtros] ?? ""),
+          Rampa: anyIt[VEH_FIELDS.Rampa] === true,
+          LargoRampa: String(anyIt[VEH_FIELDS.LargoRampa] ?? ""),
+          AnchoRampa: String(anyIt[VEH_FIELDS.AnchoRampa] ?? ""),
+          Bonificacion: anyIt[VEH_FIELDS.Bonificacion] === true,
+          RielesLogisticos: anyIt[VEH_FIELDS.RielesLogisticos] === true,
+          Propiedad: anyIt[VEH_FIELDS.Propiedad] === true,
+          NroResolucion: String(anyIt[VEH_FIELDS.Resolucion] ?? ""),
+          MedidasInternas: String(anyIt[VEH_FIELDS.MedidasInternas] ?? ""),
+          MedidasExternas: String(anyIt[VEH_FIELDS.MedidasExternas] ?? ""),
+          AlturaPiso: String(anyIt[VEH_FIELDS.AlturaPiso] ?? ""),
+          PesoCargaUtil: String(anyIt[VEH_FIELDS.PesoCargaUtil] ?? ""),
+          PesoNeto: String(anyIt[VEH_FIELDS.PesoBruto] ?? ""),
+          Temperatura: String(anyIt[VEH_FIELDS.Temperatura] ?? ""),
+          TipoTemperatura: String(anyIt[VEH_FIELDS.TipoTemperatura] ?? ""),
+          TipoUnidad: String(anyIt[VEH_FIELDS.TipoUnidad] ?? ""),
+          Activo: anyIt[VEH_FIELDS.Activo] !== false,
+          Final: anyIt[VEH_FIELDS.Final] === true,
+          CorreosNotificacion: cleanHtml(anyIt[VEH_FIELDS.Correos]),
+          Empresa: String(anyIt.Proveedor?.Title ?? ""),
+          EmpresaId: anyIt.Proveedor?.Id ?? undefined,
+        };
+      });
+
+      _setVehiculos(mapped);
+    } catch (err) {
+      console.error("Error leyendo lista Vehiculos", err);
+      alert("No se pudo cargar la lista de veh?culos.");
+    }
+    },
+    [sp, Proveedor, Transportista, empresaUsuarioId]
+  );
+
   const handleRowDoubleClick = React.useCallback(
     async (veh: IVehiculoItemFull): Promise<void> => {
+      if (accion === "actualizar" && veh.Id && veh.Id > 0) {
+        try {
+          const current = (await sp.web.lists
+            .getByTitle(LISTS.Vehiculos)
+            .items.getById(veh.Id)
+            .select("Id", VEH_FIELDS.Final)()) as Record<string, unknown>;
+
+          if (current && current[VEH_FIELDS.Final] === false) {
+            alert(
+              "El vehículo ya fue finalizado. Actualizá la grilla para ver el estado actual."
+            );
+            cargarVehiculos({ includeFinalizados: false }).catch((err) =>
+              console.error(err)
+            );
+            return;
+          }
+        } catch (err) {
+          console.error("No se pudo verificar el estado final del vehículo", err);
+          alert(
+            "No se pudo verificar el estado actual del vehículo. Intentá nuevamente."
+          );
+          return;
+        }
+      }
+
       selectionLockedRef.current = true;
 
       setVehiculo({
@@ -1739,104 +1893,8 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
 
       setValidationError(undefined);
     },
-    [accion]
+    [accion, cargarVehiculos, sp]
   );
-
-  const cargarVehiculos = React.useCallback(async (): Promise<void> => {
-    try {
-      let req = sp.web.lists
-        .getByTitle(LISTS.Vehiculos)
-        .items.select(
-          "Id",
-          VEH_FIELDS.Title,
-          VEH_FIELDS.SOAT,
-          VEH_FIELDS.Codigo,
-          VEH_FIELDS.Marca,
-          VEH_FIELDS.Modelo,
-          VEH_FIELDS.Capacidad,
-          VEH_FIELDS.CapacidadOtros,
-          VEH_FIELDS.Rampa,
-          VEH_FIELDS.LargoRampa,
-          VEH_FIELDS.AnchoRampa,
-          VEH_FIELDS.Bonificacion,
-          VEH_FIELDS.RielesLogisticos,
-          VEH_FIELDS.Propiedad,
-          VEH_FIELDS.Resolucion,
-          VEH_FIELDS.MedidasInternas,
-          VEH_FIELDS.MedidasExternas,
-          VEH_FIELDS.AlturaPiso,
-          VEH_FIELDS.PesoCargaUtil,
-          VEH_FIELDS.PesoBruto,
-          VEH_FIELDS.Temperatura,
-          VEH_FIELDS.TipoTemperatura,
-          VEH_FIELDS.TipoUnidad,
-          VEH_FIELDS.Activo,
-          VEH_FIELDS.Correos,
-          `${VEH_FIELDS.Proveedor}/Id`,
-          `${VEH_FIELDS.Proveedor}/Title`
-        )
-        .expand(VEH_FIELDS.Proveedor);
-
-      const filtros: string[] = [`${VEH_FIELDS.Activo} eq 1`];
-      if ((Proveedor || !!Transportista) && empresaUsuarioId) {
-        filtros.push(`${VEH_FIELDS.Proveedor}/Id eq ${empresaUsuarioId}`);
-      }
-      if (filtros.length > 0) {
-        req = req.filter(filtros.join(" and "));
-      }
-
-      const items = (await req.top(500)()) as Array<Record<string, unknown>>;
-
-      const cleanHtml = (v: unknown): string =>
-        String(v ?? "")
-          .replace(/<[^>]*>/g, "")
-          .replace(/&nbsp;/gi, " ")
-          .trim();
-
-      const mapped: IVehiculoItemFull[] = items.map((it) => {
-        const anyIt = it as Record<string, unknown> & {
-          Id?: number;
-          Proveedor?: { Title?: string; Id?: number };
-        };
-
-        return {
-          Id: Number(anyIt.Id || 0),
-          Title: String(anyIt[VEH_FIELDS.Title] ?? ""),
-          Proveedor: String(anyIt.Proveedor?.Title ?? ""),
-          SOAT: String(anyIt[VEH_FIELDS.SOAT] ?? ""),
-          CodigoInterno: String(anyIt[VEH_FIELDS.Codigo] ?? ""),
-          Marca: String(anyIt[VEH_FIELDS.Marca] ?? ""),
-          Modelo: String(anyIt[VEH_FIELDS.Modelo] ?? ""),
-          Capacidad: String(anyIt[VEH_FIELDS.Capacidad] ?? ""),
-          Otros: String(anyIt[VEH_FIELDS.CapacidadOtros] ?? ""),
-          Rampa: anyIt[VEH_FIELDS.Rampa] === true,
-          LargoRampa: String(anyIt[VEH_FIELDS.LargoRampa] ?? ""),
-          AnchoRampa: String(anyIt[VEH_FIELDS.AnchoRampa] ?? ""),
-          Bonificacion: anyIt[VEH_FIELDS.Bonificacion] === true,
-          RielesLogisticos: anyIt[VEH_FIELDS.RielesLogisticos] === true,
-          Propiedad: anyIt[VEH_FIELDS.Propiedad] === true,
-          NroResolucion: String(anyIt[VEH_FIELDS.Resolucion] ?? ""),
-          MedidasInternas: String(anyIt[VEH_FIELDS.MedidasInternas] ?? ""),
-          MedidasExternas: String(anyIt[VEH_FIELDS.MedidasExternas] ?? ""),
-          AlturaPiso: String(anyIt[VEH_FIELDS.AlturaPiso] ?? ""),
-          PesoCargaUtil: String(anyIt[VEH_FIELDS.PesoCargaUtil] ?? ""),
-          PesoNeto: String(anyIt[VEH_FIELDS.PesoBruto] ?? ""),
-          Temperatura: String(anyIt[VEH_FIELDS.Temperatura] ?? ""),
-          TipoTemperatura: String(anyIt[VEH_FIELDS.TipoTemperatura] ?? ""),
-          TipoUnidad: String(anyIt[VEH_FIELDS.TipoUnidad] ?? ""),
-          Activo: anyIt[VEH_FIELDS.Activo] !== false,
-          CorreosNotificacion: cleanHtml(anyIt[VEH_FIELDS.Correos]),
-          Empresa: String(anyIt.Proveedor?.Title ?? ""),
-          EmpresaId: anyIt.Proveedor?.Id ?? undefined,
-        };
-      });
-
-      _setVehiculos(mapped);
-    } catch (err) {
-      console.error("Error leyendo lista Vehiculos", err);
-      alert("No se pudo cargar la lista de veh?culos.");
-    }
-  }, [sp, Proveedor, Transportista, empresaUsuarioId]);
 
   const hasValueUI = (v: unknown): boolean =>
     v !== undefined && v !== null && String(v).trim() !== "";
@@ -2073,7 +2131,9 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
                   onClick={(): void => {
                     setAccion("actualizar");
                     setModo("MODIFICAR");
-                    cargarVehiculos().catch((e) => console.error(e));
+                    cargarVehiculos({ includeFinalizados: false }).catch((e) =>
+                      console.error(e)
+                    );
                   }}
                 />
 
@@ -2085,7 +2145,9 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
                   onClick={(): void => {
                     setAccion("baja");
                     setModo("BAJA");
-                    cargarVehiculos().catch((e) => console.error(e));
+                    cargarVehiculos({ includeFinalizados: true }).catch((e) =>
+                      console.error(e)
+                    );
                   }}
                 />
               </div>
