@@ -1,4 +1,4 @@
-import * as React from "react";
+﻿import * as React from "react";
 import {
   Dropdown,
   IDropdownOption,
@@ -15,6 +15,16 @@ import {
   getProveedoresCatalogFromList,
   ProveedorInfo,
 } from "../../data/proveedoresCatalog";
+import {
+  isPlacaValid,
+  normalizePlacaValue,
+  parsePlacaPattern,
+} from "../../utils/placa";
+import {
+  isCamionTipoUnidad,
+  isCodigoVehicularValid,
+  normalizeCodigoVehicular,
+} from "../../utils/vehiculoRules";
 
 type VehiculoExt = {
   Empresa?: string;
@@ -86,12 +96,14 @@ const DatosVehiculo: React.FC<{
   empresaBloqueada?: boolean;
   bonificacionBloqueada?: boolean;
   lockedFields?: string[];
+  proveedor?: boolean;
   proveedoresList?: string;
   proveedoresDisplayField?: string;
   proveedoresUserField?: string;
+  placaFormat?: string;
   alturaPisoHelpImageUrl?: string;
 
-  // NUEVO (para mostrar rectángulos SOLO después del primer intento de guardar)
+  // NUEVO (para mostrar rect?ngulos SOLO despu?s del primer intento de guardar)
   showValidation?: boolean;
   // acepta keys ("EmpresaId", "Placa", etc.) o labels ("Empresa", "Placa", etc.)
   missingRequired?: string[];
@@ -108,9 +120,11 @@ const DatosVehiculo: React.FC<{
   empresaBloqueada = false,
   bonificacionBloqueada = false,
   lockedFields = [],
+  proveedor = false,
   proveedoresList,
   proveedoresDisplayField,
   proveedoresUserField,
+  placaFormat,
   alturaPisoHelpImageUrl,
 
   showValidation = false,
@@ -137,13 +151,22 @@ const DatosVehiculo: React.FC<{
     void run();
   }, [proveedoresList]);
 
+  const placaPattern = React.useMemo(
+    () => parsePlacaPattern(placaFormat),
+    [placaFormat]
+  );
+  const showCodigoVehicular = React.useMemo(
+    () => isCamionTipoUnidad(safeVehiculo.TipoUnidad),
+    [safeVehiculo.TipoUnidad]
+  );
+
   const isLocked = React.useCallback(
     (name: string) => lockedFields?.includes(name),
     [lockedFields]
   );
 
   // ===========
-  // Validación visual (solo si showValidation === true)
+  // Validaci?n visual (solo si showValidation === true)
   // ===========
   const missingKeySet = React.useMemo(() => {
     const set = new Set<string>();
@@ -158,20 +181,20 @@ const DatosVehiculo: React.FC<{
       Modelo: "Modelo",
       Placa: "Placa",
       SOAT: "SOAT",
-      "Código de unidad": "CodigoInterno",
+      "C?digo de unidad": "CodigoInterno",
       Capacidad: "Capacidad",
       "Capacidad otros": "Otros",
       "Medida interna": "MedidasInternas",
       "Medida externa": "MedidasExternas",
-      "Altura de piso a furgón": "AlturaPiso",
-      "Altura de piso al furgón": "AlturaPiso",
-      "Peso útil": "PesoCargaUtil",
+      "Altura de piso a furg?n": "AlturaPiso",
+      "Altura de piso al furg?n": "AlturaPiso",
+      "Peso ?til": "PesoCargaUtil",
       "Peso bruto": "PesoNeto",
       "Largo de rampa": "LargoRampa",
       "Ancho de rampa": "AnchoRampa",
       // si alguna vez lo usan:
       Bonificacion: "Bonificacion",
-      "N° de resolución": "NroResolucion",
+      "N? de resoluci?n": "NroResolucion",
     };
 
     for (const raw of missingRequired || []) {
@@ -241,10 +264,10 @@ const DatosVehiculo: React.FC<{
 
   const isInvalid = React.useCallback(
     (key: string, value: unknown, lockedBy?: string | string[]): boolean => {
-      // clave: NO mostrar nada si no se intentó guardar
+      // clave: NO mostrar nada si no se intent? guardar
       if (!showValidation) return false;
 
-      // si el padre nos pasa faltantes, usamos eso (es lo que querés)
+      // si el padre nos pasa faltantes, usamos eso (es lo que quer?s)
       if (missingKeySet.size > 0) {
         // igual respetamos locks para no marcar campos bloqueados
         const locks = Array.isArray(lockedBy)
@@ -286,6 +309,32 @@ const DatosVehiculo: React.FC<{
         [key]: v ?? "",
       }));
     };
+
+  const setPlaca = React.useCallback(
+    (
+      _ev: React.FormEvent<HTMLInputElement | HTMLTextAreaElement>,
+      v?: string
+    ) => {
+      setVehiculo((s) => ({
+        ...(s || {}),
+        Placa: normalizePlacaValue(v ?? "", placaPattern),
+      }));
+    },
+    [placaPattern, setVehiculo]
+  );
+
+  const setCodigoVehicular = React.useCallback(
+    (
+      _ev: React.FormEvent<HTMLInputElement | HTMLTextAreaElement>,
+      v?: string
+    ) => {
+      setVehiculo((s) => ({
+        ...(s || {}),
+        Codigo: normalizeCodigoVehicular(v ?? ""),
+      }));
+    },
+    [setVehiculo]
+  );
 
   const proveedorActual = React.useMemo(() => {
     if (!safeVehiculo.EmpresaId) return undefined;
@@ -357,13 +406,16 @@ const DatosVehiculo: React.FC<{
     ? isInvalid("TipoTemperatura", safeVehiculo.TipoTemperatura, "TipoTemperatura")
     : false;
 
-  const invalidPlaca = isInvalid("Placa", safeVehiculo.Placa, ["Placa", "Title"]);
+  const invalidPlaca =
+    isInvalid("Placa", safeVehiculo.Placa, ["Placa", "Title"]) ||
+    (showValidation && !!placaPattern && !isPlacaValid(safeVehiculo.Placa, placaPattern));
   const invalidSoat = isInvalid("SOAT", safeVehiculo.SOAT, "SOAT");
-  // OJO: tu estado usa vehiculo.Codigo, pero la validación/required la manejás como CodigoInterno
-  const invalidCodigo = isInvalid("CodigoInterno", safeVehiculo.Codigo, [
-    "Codigo",
-    "CodigoInterno",
-  ]);
+  // OJO: tu estado usa vehiculo.Codigo, pero la validaci?n/required la manej?s como CodigoInterno
+  const codigoValue = safeVehiculo.Codigo || "";
+  const invalidCodigo =
+    showCodigoVehicular &&
+    (isInvalid("CodigoInterno", codigoValue, ["Codigo", "CodigoInterno"]) ||
+      (hasValue(codigoValue) && !isCodigoVehicularValid(codigoValue)));
 
   const invalidMarca = isInvalid("Marca", safeVehiculo.Marca, "Marca");
   const invalidModelo = isInvalid("Modelo", safeVehiculo.Modelo, "Modelo");
@@ -371,7 +423,7 @@ const DatosVehiculo: React.FC<{
   const invalidCapacidad = isInvalid("Capacidad", safeVehiculo.Capacidad, "Capacidad");
   const invalidOtros = isCapacidadOtro ? isInvalid("Otros", safeVehiculo.Otros, "Otros") : false;
 
-  // NOTA: por tus comentarios, NO querés forzar toggles. Igual si el padre manda faltantes para Rampa, lo pinta.
+  // NOTA: por tus comentarios, NO quer?s forzar toggles. Igual si el padre manda faltantes para Rampa, lo pinta.
   const invalidRampa = isInvalid("Rampa", safeVehiculo.Rampa, "Rampa");
   const invalidLargoRampa =
     safeVehiculo.Rampa ? isInvalid("LargoRampa", safeVehiculo.LargoRampa, "LargoRampa") : false;
@@ -412,7 +464,7 @@ const DatosVehiculo: React.FC<{
               onChange={onEmpresaChange}
               disabled={
                 disabled ||
-                empresaBloqueada ||
+                (empresaBloqueada && !proveedor) ||
                 isLocked("Empresa") ||
                 isLocked("EmpresaId")
               }
@@ -473,13 +525,46 @@ const DatosVehiculo: React.FC<{
         </div>
       </div>
 
-      {/* Placa / SOAT / Código */}
+      {showCodigoVehicular && (
+        <div className={classes.grid3}>
+          <TextField
+            label={
+              isRequired("CodigoInterno")
+                ? "Código de unidad *"
+                : "Código de unidad"
+            }
+            value={normalizeCodigoVehicular(safeVehiculo.Codigo || "")}
+            onChange={setCodigoVehicular}
+            disabled={disabled || isLocked("Codigo") || isLocked("CodigoInterno")}
+            maxLength={6}
+            description="Alfanumérico, mayúsculas, máximo 6 caracteres."
+            styles={
+              invalidCodigo
+                ? { fieldGroup: { borderColor: "#a4262c", borderWidth: 2 } }
+                : undefined
+            }
+          />
+
+          <div />
+          <div />
+        </div>
+      )}
+
+      {/* Placa / SOAT / C?digo */}
       <div className={classes.grid3}>
         <TextField
           label="Placa *"
           value={safeVehiculo.Placa || ""}
-          onChange={setText("Placa")}
+          onChange={setPlaca}
           disabled={disabled || isLocked("Placa") || isLocked("Title")}
+          maxLength={
+            placaPattern ? placaPattern.left + placaPattern.right + 1 : undefined
+          }
+          description={
+            placaPattern
+              ? `Formato esperado: ${placaPattern.left} + ${placaPattern.right} caracteres. El guion es opcional.`
+              : undefined
+          }
           styles={
             invalidPlaca
               ? { fieldGroup: { borderColor: "#a4262c", borderWidth: 2 } }
@@ -499,17 +584,7 @@ const DatosVehiculo: React.FC<{
           }
         />
 
-        <TextField
-          label="Código de unidad *"
-          value={safeVehiculo.Codigo || ""}
-          onChange={setText("Codigo")}
-          disabled={disabled || isLocked("Codigo") || isLocked("CodigoInterno")}
-          styles={
-            invalidCodigo
-              ? { fieldGroup: { borderColor: "#a4262c", borderWidth: 2 } }
-              : undefined
-          }
-        />
+        <div />
       </div>
 
       {/* Marca / Modelo */}
@@ -621,10 +696,12 @@ const DatosVehiculo: React.FC<{
         )}
       </div>
 
-      {/* Bonificación */}
+      {/* Bonificaci?n */}
       <div className={classes.grid3}>
         <div className={classes.fieldCell}>
-          <div className={classes.fieldLabel}>Bonificación *</div>
+          <div className={classes.fieldLabel}>
+            {isRequired("Bonificacion") ? "Bonificación *" : "Bonificación"}
+          </div>
           <div style={invalidBoxStyle(invalidBonificacion)}>
             <Toggle
               checked={!!safeVehiculo.Bonificacion}
@@ -641,7 +718,11 @@ const DatosVehiculo: React.FC<{
 
         {safeVehiculo.Bonificacion && (
           <TextField
-            label="N° de resolución *"
+            label={
+              isRequired("NroResolucion")
+                ? "N° de resolución *"
+                : "N° de resolución"
+            }
             value={safeVehiculo.NroResolucion || ""}
             onChange={setText("NroResolucion")}
             disabled={disabled || bonificacionBloqueada}
@@ -656,7 +737,7 @@ const DatosVehiculo: React.FC<{
         <div />
       </div>
 
-      {/* Rieles logísticos / Propiedad */}
+      {/* Rieles log?sticos / Propiedad */}
       <div className={classes.grid3}>
         <div className={classes.fieldCell}>
           <div className={classes.fieldLabel}>¿Cuenta con rieles logísticos?</div>
@@ -673,7 +754,7 @@ const DatosVehiculo: React.FC<{
         </div>
 
         <div className={classes.fieldCell}>
-          <div className={classes.fieldLabel}>¿La unidad es propiedad?</div>
+          <div className={classes.fieldLabel}>¿La unidad es propia?</div>
           <Toggle
             checked={!!safeVehiculo.Propiedad}
             onChange={(_e, c) =>
@@ -692,7 +773,7 @@ const DatosVehiculo: React.FC<{
       {/* Medidas */}
       <div className={classes.grid3}>
         <TextField
-          label="Medidas Internas Furgón (LxAxH) *"
+          label="Medidas Internas Furgón (LxAxH)"
           value={safeVehiculo.MedidasInternas || ""}
           onChange={setText("MedidasInternas")}
           disabled={disabled}
@@ -704,7 +785,7 @@ const DatosVehiculo: React.FC<{
         />
 
         <TextField
-          label="Medidas Externas del Camión (LxAxH) *"
+          label="Medidas Externas del Camión (LxAxH)"
           value={safeVehiculo.MedidasExternas || ""}
           onChange={setText("MedidasExternas")}
           disabled={disabled}
@@ -768,7 +849,7 @@ const DatosVehiculo: React.FC<{
         <TextField
           label="Peso bruto *"
           value={safeVehiculo.PesoNeto || ""}
-          type={isNumber("pesobruto") ? "number" : "text"}
+          type="text"
           onChange={setText("PesoNeto")}
           disabled={disabled}
           styles={
@@ -797,7 +878,7 @@ const DatosVehiculo: React.FC<{
             }}
           >
             <div style={{ fontWeight: 600 }}>
-              Altura de piso al furgón — Referencia
+              Altura de piso al furgón - Referencia
             </div>
             <IconButton
               iconProps={{ iconName: "Cancel" }}

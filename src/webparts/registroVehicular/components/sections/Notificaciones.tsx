@@ -10,13 +10,24 @@ type Props = {
 };
 
 export function Notificaciones({ vehiculo, setVehiculo, disabled }: Props) {
-  // fuerza a string y saca cualquier tag html
-  const toPlain = (v: any): string => {
-    const s = String(v ?? "");
-    return s
-      .replace(/<[^>]*>/g, "") // quita etiquetas
-      .replace(/&nbsp;/gi, " ") // quita nbsp
-      .trim();
+  const toPlain = (v: unknown): string => {
+    const raw = String(v ?? "");
+    if (!raw) return "";
+
+    const withBreaks = raw
+      .replace(/<\/(div|p|li|tr|td|h[1-6])>/gi, "\n")
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/&nbsp;/gi, " ");
+
+    const stripped = withBreaks.replace(/<[^>]*>/g, "");
+
+    try {
+      const textarea = document.createElement("textarea");
+      textarea.innerHTML = stripped;
+      return textarea.value.replace(/\u00a0/g, " ").trim();
+    } catch {
+      return stripped.replace(/\u00a0/g, " ").trim();
+    }
   };
 
   const value = toPlain(vehiculo.CorreosNotificacion);
@@ -45,7 +56,7 @@ export function Notificaciones({ vehiculo, setVehiculo, disabled }: Props) {
             placeholder="correo1@dominio.com; correo2@dominio.com"
             value={value}
             onChange={(_, v) =>
-              setVehiculo((s: any) => ({
+              setVehiculo((s) => ({
                 ...(s || {}),
                 // guardamos ya limpio
                 CorreosNotificacion: toPlain(v),

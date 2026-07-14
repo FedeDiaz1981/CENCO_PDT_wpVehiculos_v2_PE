@@ -51,7 +51,7 @@ export const classes = mergeStyleSets({
     background: "transparent",
   },
   page: {
-    maxWidth: 1040,
+    maxWidth: 1220,
     margin: "0 auto",
     padding: 18,
     background: `linear-gradient(180deg, ${BRAND.shell} 0%, ${BRAND.canvas} 100%)`,

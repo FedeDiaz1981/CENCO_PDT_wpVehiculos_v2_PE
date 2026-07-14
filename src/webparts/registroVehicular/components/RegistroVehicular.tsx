@@ -1,4 +1,4 @@
-import * as React from "react";
+﻿import * as React from "react";
 import { spfi, SPFI } from "@pnp/sp";
 import { SPFx } from "@pnp/sp/presets/all";
 import {
@@ -34,6 +34,15 @@ import {
 } from "../services/certificados.service";
 import { IVehiculoItem } from "../services/vehiculos.service";
 import { getEmpresaForCurrentUser } from "../services/proveedores.service";
+import {
+  isPlacaValid,
+  normalizePlacaValue,
+  parsePlacaPattern,
+} from "../utils/placa";
+import {
+  isCamionTipoUnidad,
+  normalizeCodigoVehicular,
+} from "../utils/vehiculoRules";
 
 type IVehiculoItemFull = IVehiculoItem & {
   Placa?: string;
@@ -144,7 +153,7 @@ const DOC_MATRIX: Record<
   >
 > = {
   "con temperatura": {
-    camión: {
+    "camión": {
       termoking: true,
       sanipes: true,
       tarjetaPropiedad: true,
@@ -173,7 +182,7 @@ const DOC_MATRIX: Record<
     },
   },
   seco: {
-    camión: {
+    "camión": {
       termoking: false,
       sanipes: false,
       tarjetaPropiedad: true,
@@ -349,7 +358,7 @@ const DocumentacionLiteLocal: React.FC<{
           iconName="Page"
           styles={{ root: { fontSize: 20, color: theme.palette.themePrimary } }}
         />
-        <div className={classes.cardTitle}>2- Documentación</div>
+        <div className={classes.cardTitle}>2- Documentaci?n</div>
       </div>
       <Separator />
 
@@ -370,7 +379,7 @@ const DocumentacionLiteLocal: React.FC<{
         {showResBonificacion && (
           <div className={`${classes.docItem} ${classes.docLabelScope}`}>
             <DocCard
-              title="Resolución de bonificación *"
+              title="Resoluci?n de bonificaci?n *"
               file={fileOut(doc.resBonificacionFile)}
               existingFileName={getExistingName(doc.resBonificacionFile)}
               onFileChange={
@@ -385,8 +394,8 @@ const DocumentacionLiteLocal: React.FC<{
         {showFumigacion && (
           <div className={`${classes.docItem} ${classes.docLabelScope}`}>
             <DocCard
-              title="Certificado de fumigación *"
-              dateLabel="Fecha de emisión *"
+              title="Certificado de fumigaci?n *"
+              dateLabel="Fecha de emisi?n *"
               dateValue={doc.fumigacionDate || ""}
               onDateChange={
                 disabled
@@ -407,7 +416,7 @@ const DocumentacionLiteLocal: React.FC<{
 
         <div className={`${classes.docItem} ${classes.docLabelScope}`}>
           <DocCard
-            title="Revisión técnica *"
+            title="Revisi?n t?cnica *"
             dateLabel="Fecha de vencimiento *"
             dateValue={doc.revTecDate || ""}
             onDateChange={
@@ -416,7 +425,7 @@ const DocumentacionLiteLocal: React.FC<{
                 : (value?: string) => setField("revTecDate")(value || "")
             }
             dateMin={todayStr}
-            textLabel="Año de fabricación *"
+            textLabel="A?o de fabricaci?n *"
             textValue={doc.revTecText ?? ""}
             onTextChange={
               disabled
@@ -439,7 +448,7 @@ const DocumentacionLiteLocal: React.FC<{
           <div className={`${classes.docItem} ${classes.docLabelScope}`}>
             <DocCard
               title="SANIPES"
-              dateLabel="Fecha de resolución de expediente"
+              dateLabel="Fecha de resoluci?n de expediente"
               dateValue={doc.SanipesDate || ""}
               onDateChange={
                 disabled
@@ -447,7 +456,7 @@ const DocumentacionLiteLocal: React.FC<{
                   : (value?: string) => setField("SanipesDate")(value || "")
               }
               dateMax={todayStr}
-              textLabel="N° de expediente"
+              textLabel="N? de expediente"
               textValue={doc.SanipesText ?? ""}
               onTextChange={
                 disabled
@@ -469,7 +478,7 @@ const DocumentacionLiteLocal: React.FC<{
           <div className={`${classes.docItem} ${classes.docLabelScope}`}>
             <DocCard
               title="Certificado de mantenimiento de termoking *"
-              dateLabel="Fecha de emisión *"
+              dateLabel="Fecha de emisi?n *"
               dateValue={doc.termokingDate || ""}
               onDateChange={
                 disabled
@@ -491,8 +500,8 @@ const DocumentacionLiteLocal: React.FC<{
         {showLimpieza && (
           <div className={`${classes.docItem} ${classes.docLabelScope}`}>
             <DocCard
-              title="Limpieza y desinfección *"
-              dateLabel="Fecha de emisión *"
+              title="Limpieza y desinfecci?n *"
+              dateLabel="Fecha de emisi?n *"
               dateValue={doc.limpiezaDate || ""}
               onDateChange={
                 disabled
@@ -517,12 +526,32 @@ const DocumentacionLiteLocal: React.FC<{
 
 type NotificacionesVehiculo = Pick<IVehiculoItemFull, "CorreosNotificacion">;
 
+function cleanRichText(value: unknown): string {
+  const raw = String(value ?? "");
+  if (!raw) return "";
+
+  const withBreaks = raw
+    .replace(/<\/(div|p|li|tr|td|h[1-6])>/gi, "\n")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/&nbsp;/gi, " ");
+
+  const stripped = withBreaks.replace(/<[^>]*>/g, "");
+
+  try {
+    const textarea = document.createElement("textarea");
+    textarea.innerHTML = stripped;
+    return textarea.value.replace(/\u00a0/g, " ").trim();
+  } catch {
+    return stripped.replace(/\u00a0/g, " ").trim();
+  }
+}
+
 const Notificaciones: React.FC<{
   vehiculo: NotificacionesVehiculo;
   setVehiculo: React.Dispatch<React.SetStateAction<IVehiculoItemFull>>;
   disabled?: boolean;
 }> = ({ vehiculo, setVehiculo, disabled }) => {
-  const value = vehiculo.CorreosNotificacion || "";
+  const value = cleanRichText(vehiculo.CorreosNotificacion);
   return (
     <div className={classes.card}>
       <div className={classes.cardHeader}>
@@ -537,13 +566,13 @@ const Notificaciones: React.FC<{
         <Stack tokens={{ childrenGap: 12 }}>
           <Stack.Item grow className={classes.fieldCell}>
             <TextField
-              label="Correos de notificación"
+              label="Correos de notificaci?n"
               placeholder="correo1@dominio.com; correo2@dominio.com"
               value={value}
               onChange={(_, v) =>
                 setVehiculo((s) => ({
                   ...s,
-                  CorreosNotificacion: v || "",
+                  CorreosNotificacion: cleanRichText(v),
                 }))
               }
               multiline
@@ -563,6 +592,7 @@ type RegistroVehicularProps = {
   proveedoresList: string;
   proveedoresDisplayField: string;
   proveedoresUserField: string;
+  placaFormat?: string;
   Proveedor: boolean;
   Distribuidor: boolean;
   Coordinador: boolean;
@@ -581,12 +611,17 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
     proveedoresList,
     proveedoresDisplayField,
     proveedoresUserField,
+    placaFormat,
     Borrar,
     alturaPisoHelpImageUrl,
     redireccion,
     urlRedireccion,
   } = _props;
 
+  const placaPattern = React.useMemo(
+    () => parsePlacaPattern(placaFormat),
+    [placaFormat]
+  );
   const sp = React.useMemo<SPFI>(
     () => spfi().using(SPFx(spContext)),
     [spContext]
@@ -602,6 +637,39 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
   const [busy, setBusy] = React.useState<boolean>(false);
   const [vehiculo, setVehiculo] =
     React.useState<IVehiculoItemFull>(vehiculoInicial);
+  const showCodigoVehicular = React.useMemo(
+    () => isCamionTipoUnidad(vehiculo.TipoUnidad),
+    [vehiculo.TipoUnidad]
+  );
+  const requiredVehicleFields = React.useMemo(
+    (): Record<string, boolean | undefined> =>
+      Proveedor
+        ? {
+            EmpresaId: true,
+            Placa: true,
+            Marca: true,
+            Modelo: true,
+          }
+        : {
+            EmpresaId: true,
+            Temperatura: true,
+            TipoUnidad: true,
+            TipoTemperatura: true,
+
+            Placa: true,
+            SOAT: true,
+            CodigoInterno: showCodigoVehicular,
+            Marca: true,
+            Modelo: true,
+
+            Capacidad: true,
+            Otros: true,
+            AlturaPiso: true,
+            PesoCargaUtil: true,
+            PesoNeto: true,
+          },
+    [Proveedor, showCodigoVehicular]
+  );
   const [empresaBloqueada, setEmpresaBloqueada] =
     React.useState<boolean>(false);
   const [empresaUsuarioId, setEmpresaUsuarioId] = React.useState<
@@ -636,6 +704,7 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
     message: string;
   } | null>(null);
   const topRef = React.useRef<HTMLDivElement | null>(null);
+  const selectionLockedRef = React.useRef<boolean>(false);
   const errorModalStyles = React.useMemo(
     () => ({
       container: {
@@ -686,7 +755,7 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
       rev.setHours(0, 0, 0, 0);
       if (rev < hoy) {
         errorMsg =
-          "La fecha de vencimiento de la revisión técnica no puede estar vencida.";
+          "La fecha de vencimiento de la revisi?n t?cnica no puede estar vencida.";
       }
     }
 
@@ -698,7 +767,7 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
         (hoy.getMonth() - fum.getMonth());
       if (diffMeses > 6) {
         errorMsg =
-          "La fecha de emisión del certificado de fumigación no puede tener más de 6 meses de antigüedad.";
+          "La fecha de emisi?n del certificado de fumigaci?n no puede tener m?s de 6 meses de antig?edad.";
       }
     }
 
@@ -710,7 +779,7 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
         (hoy.getMonth() - termokingD.getMonth());
       if (diffMeses > 6) {
         errorMsg =
-          "La fecha de emisión del certificado de termoking no puede tener más de 6 meses de antigüedad.";
+          "La fecha de emisi?n del certificado de termoking no puede tener m?s de 6 meses de antig?edad.";
       }
     }
 
@@ -721,7 +790,7 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
         (hoy.getTime() - limpiezaD.getTime()) / (1000 * 60 * 60 * 24);
       if (diffDias > 31) {
         errorMsg =
-          "La fecha de emisión del certificado de limpieza y desinfección no puede tener más de un mes de antigüedad.";
+          "La fecha de emisi?n del certificado de limpieza y desinfecci?n no puede tener m?s de un mes de antig?edad.";
       }
     }
 
@@ -743,6 +812,10 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
           displayCol: proveedoresDisplayField || "Title",
           userCol: proveedoresUserField || "Usuarios",
         });
+
+        if (selectionLockedRef.current) {
+          return;
+        }
 
         if (proveedorId && empresaTitle) {
           setVehiculo((prev) => ({
@@ -777,6 +850,8 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
       nextAccion?: "crear" | "actualizar" | "baja",
       opts?: { scrollTop?: boolean }
     ): void => {
+      selectionLockedRef.current = false;
+
       if (nextAccion) {
         setAccion(nextAccion);
       }
@@ -864,6 +939,51 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
     });
   }, [vehiculo.Temperatura, vehiculo.TipoUnidad, vehiculo.Bonificacion]);
 
+  const isUrlDrivenEdit = React.useMemo((): boolean => {
+    const query = new URLSearchParams(window.location.search);
+    const rawId =
+      query.get("id") || query.get("itemId") || query.get("vehiculoId");
+    const vehiculoId = Number(rawId);
+    return !!rawId && !Number.isNaN(vehiculoId) && vehiculoId > 0;
+  }, []);
+
+  const isModalDriven = React.useMemo((): boolean => {
+    const query = new URLSearchParams(window.location.search);
+    return (
+      query.get("modal") === "1" ||
+      query.get("dialog") === "1" ||
+      query.get("embed") === "1"
+    );
+  }, []);
+
+  const notifyModalClose = React.useCallback(
+    (payload: {
+      action: "saved" | "cancelled";
+      id?: number;
+      placa?: string;
+    }): void => {
+      const message = {
+        source: "registroVehicular",
+        type: "close",
+        payload,
+      };
+
+      const origin = new URL(spContext.pageContext.web.absoluteUrl).origin;
+      const targets = [window.parent, window.top].filter(
+        (target): target is Window => !!target && target !== window
+      );
+
+      for (const target of targets) {
+        try {
+          target.postMessage(message, origin);
+        } catch (err) {
+          console.warn("No se pudo notificar el cierre del modal.", err);
+        }
+      }
+    },
+    [spContext]
+  );
+
   const deleteVehiculoYCertificados = React.useCallback(
     async (spLocal: SPFI, placa: string): Promise<void> => {
       await deleteCertificadosPorPlaca(placa);
@@ -882,377 +1002,10 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
     []
   );
 
-  const baseLockedFields = [
-    "Empresa",
-    "EmpresaId",
-    "Placa",
-    "Title",
-    "Marca",
-    "Modelo",
-    "Codigo",
-    "CodigoInterno",
-  ];
-  const lockedFields =
-    accion === "actualizar" || !!Transportista ? baseLockedFields : [];
+  const hydrateSelection = React.useCallback(
+    async (veh: IVehiculoItemFull, nextAction: "actualizar" | "baja"): Promise<void> => {
+      selectionLockedRef.current = true;
 
-  const dateOnly = (v?: string | undefined): string => {
-    if (!v) return "";
-    const m = /^(\d{4}-\d{2}-\d{2})/.exec(v);
-    if (m) return m[1];
-    const d = new Date(v);
-    return isNaN(d.getTime()) ? "" : d.toISOString().slice(0, 10);
-  };
-
-  const resolveRedirectUrl = React.useCallback(
-    (rawUrl: string): string => {
-      const raw = rawUrl.trim();
-      if (/^https?:\/\//i.test(raw)) return raw;
-
-      const base = spContext.pageContext.web.absoluteUrl.replace(/\/$/, "");
-      const rel = raw.startsWith("/") ? raw : `/${raw}`;
-      return `${base}${rel}`;
-    },
-    [spContext]
-  );
-
-  const redirectContainingPage = React.useCallback((targetUrl: string): void => {
-    const tryAssign = (targetWindow: Window | null | undefined): boolean => {
-      if (!targetWindow) return false;
-
-      try {
-        targetWindow.location.assign(targetUrl);
-        return true;
-      } catch (err) {
-        console.warn("No se pudo redirigir la ventana contenedora.", err);
-        return false;
-      }
-    };
-
-    if (window.top && window.top !== window && tryAssign(window.top)) return;
-    if (window.parent && window.parent !== window && tryAssign(window.parent)) {
-      return;
-    }
-
-    window.location.assign(targetUrl);
-  }, []);
-
-  const onGuardar = React.useCallback(async (): Promise<void> => {
-    setErrorModal(null);
-    if (accion === "baja") {
-      let motivo: string | undefined = "";
-      let ok = false;
-
-      while (!ok) {
-        const input = window.prompt("Motivo de la baja:", motivo || "");
-        if (input === null) return;
-        const trimmed = input.trim();
-        if (trimmed) {
-          motivo = trimmed;
-          ok = true;
-        } else {
-          alert(
-            "Tenés que ingresar un motivo para poder dar de baja el vehículo."
-          );
-        }
-      }
-
-      try {
-        setBusy(true);
-        const placa = (vehiculo.Placa || "").trim();
-        const vehList = sp.web.lists.getByTitle(LISTS.Vehiculos);
-
-        if (Borrar) {
-          if (vehiculo.Id) {
-            await vehList.items
-              .getById(vehiculo.Id)
-              .update({ motivobaja: motivo });
-          }
-          await deleteVehiculoYCertificados(sp, placa);
-          alert("Vehículo y certificados eliminados correctamente.");
-        } else {
-          if (!vehiculo.Id) {
-            alert("No se encontró el Id del vehículo para dar de baja.");
-          } else {
-            await vehList.items.getById(vehiculo.Id).update({
-              [VEH_FIELDS.Activo]: false,
-              motivobaja: motivo,
-            });
-            alert("Vehículo dado de baja (marcado como inactivo).");
-          }
-        }
-      } catch (err) {
-        console.error("Error al dar de baja el vehículo", err);
-        alert("Error al dar de baja el vehículo. Revisá consola.");
-      } finally {
-        setBusy(false);
-      }
-      return;
-    }
-
-    const errores: string[] = [];
-    const isLockedField = (name: string): boolean =>
-      (lockedFields || []).includes(name);
-
-    const req = (
-      value: unknown,
-      label: string,
-      lockedBy?: string | string[]
-    ): void => {
-      const keys = Array.isArray(lockedBy)
-        ? lockedBy
-        : lockedBy
-        ? [lockedBy]
-        : [];
-      if (keys.some((k) => isLockedField(k))) return;
-
-      if (
-        value === undefined ||
-        value === null ||
-        String(value).trim() === ""
-      ) {
-        errores.push(label);
-      }
-    };
-
-    // =========================
-    // VALIDACIÓN CAMPOS VEHÍCULO
-    // =========================
-    req(vehiculo.EmpresaId, "Empresa", ["Empresa", "EmpresaId"]);
-    req(vehiculo.Temperatura, "Temperatura", "Temperatura");
-    req(vehiculo.TipoUnidad, "Tipo de unidad", "TipoUnidad");
-
-    if (
-      (vehiculo.Temperatura || "").trim().toLowerCase() === "con temperatura"
-    ) {
-      req(vehiculo.TipoTemperatura, "Tipo temperatura", "TipoTemperatura");
-    }
-
-    req(vehiculo.Marca, "Marca", "Marca");
-    req(vehiculo.Modelo, "Modelo", "Modelo");
-
-    req(vehiculo.Placa, "Placa", ["Placa", "Title"]);
-    req(vehiculo.SOAT, "SOAT", "SOAT");
-    req(vehiculo.Codigo || vehiculo.CodigoInterno, "Código de unidad", [
-      "Codigo",
-      "CodigoInterno",
-    ]);
-
-    req(vehiculo.Capacidad, "Capacidad", "Capacidad");
-    req(vehiculo.MedidasInternas, "Medida interna", "MedidasInternas");
-    req(vehiculo.MedidasExternas, "Medida externa", "MedidasExternas");
-    req(vehiculo.AlturaPiso, "Altura de piso al furgón", "AlturaPiso");
-    req(vehiculo.PesoCargaUtil, "Peso útil", "PesoCargaUtil");
-    req(vehiculo.PesoNeto, "Peso bruto", "PesoNeto");
-
-    if (
-      vehiculo.Capacidad &&
-      String(vehiculo.Capacidad).toLowerCase().includes("otro")
-    ) {
-      req(vehiculo.Otros, "Capacidad otros", "Otros");
-    }
-
-    if (vehiculo.Rampa) {
-      req(vehiculo.LargoRampa, "Largo de rampa", "LargoRampa");
-      req(vehiculo.AnchoRampa, "Ancho de rampa", "AnchoRampa");
-    }
-
-    // =========================
-    // VALIDACIÓN DOCUMENTOS (según docsFlags)
-    // =========================
-    const hasValueLocal = (v: unknown): boolean =>
-      v !== undefined && v !== null && String(v).trim() !== "";
-
-    const hasDocFile = (v: DocFileValue): boolean => {
-      if (!v) return false;
-      if (v instanceof File) return true;
-      if (typeof v === "string") return v.trim().length > 0;
-      if (typeof v === "object" && "name" in v)
-        return String((v as any).name || "").trim().length > 0;
-      return false;
-    };
-
-    const erroresDocs: string[] = [];
-
-    // Solo exigir docs si NO es transportista (como ya venías haciendo)
-    if (!Transportista) {
-      // Tarjeta propiedad (siempre)
-      if (!hasDocFile(doc.propFile)) erroresDocs.push("Tarjeta de propiedad");
-
-      // Revisión técnica (siempre)
-      if (!hasValueLocal(doc.revTecDate))
-        erroresDocs.push("Fecha de vencimiento (Revisión técnica)");
-      if (!hasValueLocal(doc.revTecText))
-        erroresDocs.push("Año de fabricación (Revisión técnica)");
-      if (!hasDocFile(doc.revTecFile))
-        erroresDocs.push("Documento (Revisión técnica)");
-
-      // Fumigación (cuando aplica)
-      if (docsFlags.showFumigacion) {
-        if (!hasValueLocal(doc.fumigacionDate))
-          erroresDocs.push("Fecha de emisión (Fumigación)");
-        if (!hasDocFile(doc.fumigacionFile))
-          erroresDocs.push("Certificado de fumigación");
-      }
-
-      // Termoking (cuando aplica)  ✅ lo que pediste
-      if (docsFlags.showTermoking) {
-        if (!hasValueLocal(doc.termokingDate))
-          erroresDocs.push("Fecha de emisión (Termoking)");
-        if (!hasDocFile(doc.termokingFile))
-          erroresDocs.push("Certificado de mantenimiento de termoking");
-      }
-
-      // Limpieza (cuando aplica)
-      if (docsFlags.showLimpieza) {
-        if (!hasValueLocal(doc.limpiezaDate))
-          erroresDocs.push("Fecha de emisión (Limpieza y desinfección)");
-        if (!hasDocFile(doc.limpiezaFile))
-          erroresDocs.push("Certificado de limpieza y desinfección");
-      }
-
-      // Bonificación (cuando aplica)
-      if (docsFlags.showResBonificacion) {
-        if (!hasDocFile(doc.resBonificacionFile))
-          erroresDocs.push("Resolución de bonificación");
-      }
-
-      // SANIPES NO obligatorio => no se valida
-    }
-
-    // =========================
-    // CORTE SI HAY ERRORES (vehículo o docs)
-    // =========================
-    if (errores.length > 0 || erroresDocs.length > 0) {
-      const partes: string[] = [];
-      if (errores.length > 0) partes.push(errores.join(", "));
-      if (erroresDocs.length > 0) partes.push(erroresDocs.join(", "));
-
-      setValidationError(
-        "Completá los campos obligatorios: " + partes.join(", ")
-      );
-      return;
-    }
-
-    setValidationError(undefined);
-
-    // =========================
-    // GUARDADO
-    // =========================
-    try {
-      setBusy(true);
-
-      const placa = (vehiculo.Placa || "").trim();
-      let vehiculoGuardado = false;
-      const item: Record<string, unknown> = {
-        [VEH_FIELDS.Title]: vehiculo.Placa || "",
-        [VEH_FIELDS.SOAT]: vehiculo.SOAT || "",
-        [VEH_FIELDS.Codigo]: vehiculo.CodigoInterno || "",
-        [VEH_FIELDS.Marca]: vehiculo.Marca || "",
-        [VEH_FIELDS.Modelo]: vehiculo.Modelo || "",
-        [VEH_FIELDS.Capacidad]: vehiculo.Capacidad || "",
-        [VEH_FIELDS.CapacidadOtros]: vehiculo.Otros || "",
-        [VEH_FIELDS.Rampa]: !!vehiculo.Rampa,
-        [VEH_FIELDS.LargoRampa]: vehiculo.LargoRampa || "",
-        [VEH_FIELDS.AnchoRampa]: vehiculo.AnchoRampa || "",
-        [VEH_FIELDS.Bonificacion]: !!vehiculo.Bonificacion,
-        [VEH_FIELDS.RielesLogisticos]: !!vehiculo.RielesLogisticos,
-        [VEH_FIELDS.Propiedad]: !!vehiculo.Propiedad,
-        [VEH_FIELDS.Resolucion]: vehiculo.NroResolucion || "",
-        [VEH_FIELDS.MedidasInternas]: vehiculo.MedidasInternas || "",
-        [VEH_FIELDS.MedidasExternas]: vehiculo.MedidasExternas || "",
-        [VEH_FIELDS.AlturaPiso]: vehiculo.AlturaPiso || "",
-        [VEH_FIELDS.PesoCargaUtil]: vehiculo.PesoCargaUtil || "",
-        [VEH_FIELDS.PesoBruto]: vehiculo.PesoNeto || "",
-        [VEH_FIELDS.Temperatura]: vehiculo.Temperatura || "",
-        [VEH_FIELDS.TipoTemperatura]: vehiculo.TipoTemperatura || "",
-        [VEH_FIELDS.TipoUnidad]: vehiculo.TipoUnidad || "",
-        [VEH_FIELDS.Activo]: vehiculo.Activo !== false,
-        [VEH_FIELDS.Correos]: vehiculo.CorreosNotificacion || "",
-      };
-
-      if (vehiculo.EmpresaId && Number(vehiculo.EmpresaId) > 0) {
-        item[`${VEH_FIELDS.Proveedor}Id`] = Number(vehiculo.EmpresaId);
-      }
-
-      const vehList = sp.web.lists.getByTitle(LISTS.Vehiculos);
-
-      if (accion === "actualizar" && vehiculo.Id && vehiculo.Id > 0) {
-        await vehList.items
-          .getById(vehiculo.Id)
-          .update(item as Record<string, unknown>);
-      } else {
-        await vehList.items.add(item as Record<string, unknown>);
-      }
-      vehiculoGuardado = true;
-
-      if (!Transportista) {
-        try {
-          await saveCertificadosDeVehiculoSimple({ placa, doc, docsFlags });
-        } catch (errDocs) {
-          console.error("Error al guardar certificados", errDocs);
-          if (vehiculoGuardado) {
-            setErrorModal({
-              title: "Guardado parcial",
-              message:
-                "El vehículo se guardó, pero hubo un error al guardar la documentación. Intentá nuevamente.",
-            });
-          }
-          return;
-        }
-      }
-
-      alert("Vehículo y certificados guardados correctamente.");
-
-      if (redireccion && urlRedireccion && urlRedireccion.trim()) {
-        redirectContainingPage(resolveRedirectUrl(urlRedireccion));
-        return;
-      }
-
-      resetFormulario(undefined, { scrollTop: true });
-    } catch (err) {
-      console.error("Error al guardar vehículo o certificados", err);
-      const raw = getErrorText(err);
-      const placa = (vehiculo.Placa || "").trim();
-
-      if (isDuplicatePlacaError(raw) && placa) {
-        setErrorModal({
-          title: "Error al guardar",
-          message: `Error, no se puede hacer un doble registro de un vehículo con placa ${placa}.`,
-        });
-      } else {
-        setErrorModal({
-          title: "Error al guardar",
-          message:
-            "Ocurrió un error al guardar el vehículo. Verificá los datos e intentá nuevamente.",
-        });
-      }
-    } finally {
-      setBusy(false);
-    }
-  }, [
-    accion,
-    vehiculo,
-    doc,
-    docsFlags,
-    sp,
-    Borrar,
-    lockedFields,
-    Transportista,
-    redireccion,
-    urlRedireccion,
-    spContext,
-    redirectContainingPage,
-    resolveRedirectUrl,
-    deleteVehiculoYCertificados,
-    resetFormulario,
-  ]);
-
-  const onCancelar = React.useCallback((): void => {
-    window.location.reload();
-  }, []);
-
-  const handleRowDoubleClick = React.useCallback(
-    async (veh: IVehiculoItemFull): Promise<void> => {
       setVehiculo({
         Id: veh.Id,
         Title: veh.Title || "",
@@ -1363,7 +1116,617 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
         });
       } catch (err) {
         console.error("Error cargando certificados", err);
-        alert("No se pudo cargar la documentación de este vehículo.");
+        alert("No se pudo cargar la documentaci?n de este veh?culo.");
+      }
+
+      setModo(nextAction === "baja" ? "BAJA" : "MODIFICAR");
+      setAccion(nextAction);
+      setValidationError(undefined);
+    },
+    []
+  );
+
+  const loadVehicleForEdit = React.useCallback(
+    async (vehiculoId: number, nextAction: "actualizar" | "baja" = "actualizar"): Promise<boolean> => {
+      if (!vehiculoId || vehiculoId <= 0) return false;
+
+      const item = (await sp.web.lists
+        .getByTitle(LISTS.Vehiculos)
+        .items.getById(vehiculoId)
+        .select(
+          "Id",
+          VEH_FIELDS.Title,
+          VEH_FIELDS.SOAT,
+          VEH_FIELDS.Codigo,
+          VEH_FIELDS.Marca,
+          VEH_FIELDS.Modelo,
+          VEH_FIELDS.Capacidad,
+          VEH_FIELDS.CapacidadOtros,
+          VEH_FIELDS.Rampa,
+          VEH_FIELDS.LargoRampa,
+          VEH_FIELDS.AnchoRampa,
+          VEH_FIELDS.Bonificacion,
+          VEH_FIELDS.RielesLogisticos,
+          VEH_FIELDS.Propiedad,
+          VEH_FIELDS.Resolucion,
+          VEH_FIELDS.MedidasInternas,
+          VEH_FIELDS.MedidasExternas,
+          VEH_FIELDS.AlturaPiso,
+          VEH_FIELDS.PesoCargaUtil,
+          VEH_FIELDS.PesoBruto,
+          VEH_FIELDS.Temperatura,
+          VEH_FIELDS.TipoTemperatura,
+          VEH_FIELDS.TipoUnidad,
+          VEH_FIELDS.Activo,
+          VEH_FIELDS.Correos,
+          `${VEH_FIELDS.Proveedor}/Id`,
+          `${VEH_FIELDS.Proveedor}/Title`
+        )
+        .expand(VEH_FIELDS.Proveedor)()) as Record<string, unknown> & {
+        Id?: number;
+        Proveedor?: { Title?: string; Id?: number };
+      };
+
+      if (!item?.Id) return false;
+
+      const veh: IVehiculoItemFull = {
+        Id: Number(item.Id || 0),
+        Title: String(item[VEH_FIELDS.Title] ?? ""),
+        Proveedor: String(item.Proveedor?.Title ?? ""),
+        SOAT: String(item[VEH_FIELDS.SOAT] ?? ""),
+        CodigoInterno: String(item[VEH_FIELDS.Codigo] ?? ""),
+        Placa: String(item[VEH_FIELDS.Title] ?? ""),
+        Codigo: String(item[VEH_FIELDS.Codigo] ?? ""),
+        Marca: String(item[VEH_FIELDS.Marca] ?? ""),
+        Modelo: String(item[VEH_FIELDS.Modelo] ?? ""),
+        Capacidad: String(item[VEH_FIELDS.Capacidad] ?? ""),
+        Otros: String(item[VEH_FIELDS.CapacidadOtros] ?? ""),
+        Rampa: item[VEH_FIELDS.Rampa] === true,
+        LargoRampa: String(item[VEH_FIELDS.LargoRampa] ?? ""),
+        AnchoRampa: String(item[VEH_FIELDS.AnchoRampa] ?? ""),
+        Bonificacion: item[VEH_FIELDS.Bonificacion] === true,
+        RielesLogisticos: item[VEH_FIELDS.RielesLogisticos] === true,
+        Propiedad: item[VEH_FIELDS.Propiedad] === true,
+        NroResolucion: String(item[VEH_FIELDS.Resolucion] ?? ""),
+        MedidasInternas: String(item[VEH_FIELDS.MedidasInternas] ?? ""),
+        MedidasExternas: String(item[VEH_FIELDS.MedidasExternas] ?? ""),
+        AlturaPiso: String(item[VEH_FIELDS.AlturaPiso] ?? ""),
+        PesoCargaUtil: String(item[VEH_FIELDS.PesoCargaUtil] ?? ""),
+        PesoNeto: String(item[VEH_FIELDS.PesoBruto] ?? ""),
+        Temperatura: String(item[VEH_FIELDS.Temperatura] ?? ""),
+        TipoTemperatura: String(item[VEH_FIELDS.TipoTemperatura] ?? ""),
+        TipoUnidad: String(item[VEH_FIELDS.TipoUnidad] ?? ""),
+        Activo: item[VEH_FIELDS.Activo] !== false,
+        CorreosNotificacion: cleanRichText(item[VEH_FIELDS.Correos]),
+        Empresa: String(item.Proveedor?.Title ?? ""),
+        EmpresaId: item.Proveedor?.Id ?? undefined,
+      };
+
+      await hydrateSelection(veh, nextAction);
+      return true;
+    },
+    [hydrateSelection, sp]
+  );
+
+  React.useEffect((): void => {
+    const query = new URLSearchParams(window.location.search);
+    const rawId =
+      query.get("id") || query.get("itemId") || query.get("vehiculoId");
+
+    const vehiculoId = Number(rawId);
+    if (!rawId || Number.isNaN(vehiculoId) || vehiculoId <= 0) {
+      return;
+    }
+
+    loadVehicleForEdit(vehiculoId).catch((err) => {
+      console.error("No se pudo cargar el veh?culo desde la URL", err);
+      alert("No se pudo abrir el veh?culo indicado desde la URL.");
+    });
+  }, [loadVehicleForEdit]);
+
+  const baseLockedFields = [
+    "Empresa",
+    "EmpresaId",
+    "Placa",
+    "Title",
+    "Marca",
+    "Modelo",
+    "Codigo",
+    "CodigoInterno",
+  ];
+  const lockedFields =
+    accion === "actualizar" || !!Transportista ? baseLockedFields : [];
+
+  function dateOnly(v?: string | undefined): string {
+    if (!v) return "";
+    const m = /^(\d{4}-\d{2}-\d{2})/.exec(v);
+    if (m) return m[1];
+    const d = new Date(v);
+    return isNaN(d.getTime()) ? "" : d.toISOString().slice(0, 10);
+  }
+
+  const resolveRedirectUrl = React.useCallback(
+    (rawUrl: string): string => {
+      const raw = rawUrl.trim();
+      if (/^https?:\/\//i.test(raw)) return raw;
+
+      const base = spContext.pageContext.web.absoluteUrl.replace(/\/$/, "");
+      const rel = raw.startsWith("/") ? raw : `/${raw}`;
+      return `${base}${rel}`;
+    },
+    [spContext]
+  );
+
+  const redirectContainingPage = React.useCallback((targetUrl: string): void => {
+    const tryAssign = (targetWindow: Window | null | undefined): boolean => {
+      if (!targetWindow) return false;
+
+      try {
+        targetWindow.location.assign(targetUrl);
+        return true;
+      } catch (err) {
+        console.warn("No se pudo redirigir la ventana contenedora.", err);
+        return false;
+      }
+    };
+
+    if (window.top && window.top !== window && tryAssign(window.top)) return;
+    if (window.parent && window.parent !== window && tryAssign(window.parent)) {
+      return;
+    }
+
+    window.location.assign(targetUrl);
+  }, []);
+
+  const onGuardar = React.useCallback(async (): Promise<void> => {
+    setErrorModal(null);
+    if (accion === "baja") {
+      let motivo: string | undefined = "";
+      let ok = false;
+
+      while (!ok) {
+        const input = window.prompt("Motivo de la baja:", motivo || "");
+        if (input === null) return;
+        const trimmed = input.trim();
+        if (trimmed) {
+          motivo = trimmed;
+          ok = true;
+        } else {
+          alert(
+            "Ten?s que ingresar un motivo para poder dar de baja el veh?culo."
+          );
+        }
+      }
+
+      try {
+        setBusy(true);
+        const placa = (vehiculo.Placa || "").trim();
+        const vehList = sp.web.lists.getByTitle(LISTS.Vehiculos);
+
+        if (Borrar) {
+          if (vehiculo.Id) {
+            await vehList.items
+              .getById(vehiculo.Id)
+              .update({ motivobaja: motivo });
+          }
+          await deleteVehiculoYCertificados(sp, placa);
+          alert("Veh?culo y certificados eliminados correctamente.");
+        } else {
+          if (!vehiculo.Id) {
+            alert("No se encontr? el Id del veh?culo para dar de baja.");
+          } else {
+            await vehList.items.getById(vehiculo.Id).update({
+              [VEH_FIELDS.Activo]: false,
+              motivobaja: motivo,
+            });
+            alert("Veh?culo dado de baja (marcado como inactivo).");
+          }
+        }
+      } catch (err) {
+        console.error("Error al dar de baja el veh?culo", err);
+        alert("Error al dar de baja el veh?culo. Revis? consola.");
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
+
+    const errores: string[] = [];
+    const isLockedField = (name: string): boolean =>
+      (lockedFields || []).includes(name);
+
+    const req = (
+      value: unknown,
+      label: string,
+      lockedBy?: string | string[]
+    ): void => {
+      const keys = Array.isArray(lockedBy)
+        ? lockedBy
+        : lockedBy
+        ? [lockedBy]
+        : [];
+      if (keys.some((k) => isLockedField(k))) return;
+
+      if (
+        value === undefined ||
+        value === null ||
+        String(value).trim() === ""
+      ) {
+        errores.push(label);
+      }
+    };
+
+    // =========================
+    // VALIDACIÓN CAMPOS VEHÍCULO
+    // =========================
+    req(vehiculo.EmpresaId, "Empresa", ["Empresa", "EmpresaId"]);
+    req(vehiculo.Temperatura, "Temperatura", "Temperatura");
+    req(vehiculo.TipoUnidad, "Tipo de unidad", "TipoUnidad");
+
+    if (
+      (vehiculo.Temperatura || "").trim().toLowerCase() === "con temperatura"
+    ) {
+      req(vehiculo.TipoTemperatura, "Tipo temperatura", "TipoTemperatura");
+    }
+
+    req(vehiculo.Marca, "Marca", "Marca");
+    req(vehiculo.Modelo, "Modelo", "Modelo");
+
+    req(vehiculo.Placa, "Placa", ["Placa", "Title"]);
+    if (vehiculo.Placa && !isPlacaValid(vehiculo.Placa, placaPattern)) {
+      errores.push("Placa");
+    }
+    req(vehiculo.SOAT, "SOAT", "SOAT");
+    if (showCodigoVehicular) {
+      req(vehiculo.Codigo || vehiculo.CodigoInterno, "C?digo de unidad", [
+        "Codigo",
+        "CodigoInterno",
+      ]);
+    }
+
+    req(vehiculo.Capacidad, "Capacidad", "Capacidad");
+    req(vehiculo.AlturaPiso, "Altura de piso al furg?n", "AlturaPiso");
+    req(vehiculo.PesoCargaUtil, "Peso ?til", "PesoCargaUtil");
+    req(vehiculo.PesoNeto, "Peso bruto", "PesoNeto");
+
+    if (
+      vehiculo.Capacidad &&
+      String(vehiculo.Capacidad).toLowerCase().includes("otro")
+    ) {
+      req(vehiculo.Otros, "Capacidad otros", "Otros");
+    }
+
+    if (vehiculo.Rampa) {
+      req(vehiculo.LargoRampa, "Largo de rampa", "LargoRampa");
+      req(vehiculo.AnchoRampa, "Ancho de rampa", "AnchoRampa");
+    }
+
+    // =========================
+    // VALIDACIÓN DOCUMENTOS (según docsFlags)
+    // =========================
+    const hasValueLocal = (v: unknown): boolean =>
+      v !== undefined && v !== null && String(v).trim() !== "";
+
+    const hasDocFile = (v: DocFileValue): boolean => {
+      if (!v) return false;
+      if (v instanceof File) return true;
+      if (typeof v === "string") return v.trim().length > 0;
+      if (typeof v === "object" && "name" in v)
+        return String((v as any).name || "").trim().length > 0;
+      return false;
+    };
+
+    const erroresDocs: string[] = [];
+
+    // Solo exigir docs si NO es transportista (como ya ven?as haciendo)
+    if (!Transportista) {
+      // Tarjeta propiedad (siempre)
+      if (!hasDocFile(doc.propFile)) erroresDocs.push("Tarjeta de propiedad");
+
+      // Revisi?n t?cnica (siempre)
+      if (!hasValueLocal(doc.revTecDate))
+        erroresDocs.push("Fecha de vencimiento (Revisi?n t?cnica)");
+      if (!hasValueLocal(doc.revTecText))
+        erroresDocs.push("A?o de fabricaci?n (Revisi?n t?cnica)");
+      if (!hasDocFile(doc.revTecFile))
+        erroresDocs.push("Documento (Revisi?n t?cnica)");
+
+      // Fumigaci?n (cuando aplica)
+      if (docsFlags.showFumigacion) {
+        if (!hasValueLocal(doc.fumigacionDate))
+          erroresDocs.push("Fecha de emisi?n (Fumigaci?n)");
+        if (!hasDocFile(doc.fumigacionFile))
+          erroresDocs.push("Certificado de fumigaci?n");
+      }
+
+      // Termoking (cuando aplica)  âœ… lo que pediste
+      if (docsFlags.showTermoking) {
+        if (!hasValueLocal(doc.termokingDate))
+          erroresDocs.push("Fecha de emisi?n (Termoking)");
+        if (!hasDocFile(doc.termokingFile))
+          erroresDocs.push("Certificado de mantenimiento de termoking");
+      }
+
+      // Limpieza (cuando aplica)
+      if (docsFlags.showLimpieza) {
+        if (!hasValueLocal(doc.limpiezaDate))
+          erroresDocs.push("Fecha de emisi?n (Limpieza y desinfecci?n)");
+        if (!hasDocFile(doc.limpiezaFile))
+          erroresDocs.push("Certificado de limpieza y desinfecci?n");
+      }
+
+      // Bonificaci?n (cuando aplica)
+      if (docsFlags.showResBonificacion) {
+        if (!hasDocFile(doc.resBonificacionFile))
+          erroresDocs.push("Resoluci?n de bonificaci?n");
+      }
+
+      // SANIPES NO obligatorio => no se valida
+    }
+
+    // =========================
+    // CORTE SI HAY ERRORES (veh?culo o docs)
+    // =========================
+    if (errores.length > 0 || erroresDocs.length > 0) {
+      const partes: string[] = [];
+      if (errores.length > 0) partes.push(errores.join(", "));
+      if (erroresDocs.length > 0) partes.push(erroresDocs.join(", "));
+
+      setValidationError(
+        "Complet? los campos obligatorios: " + partes.join(", ")
+      );
+      return;
+    }
+
+    setValidationError(undefined);
+
+    // =========================
+    // GUARDADO
+    // =========================
+    try {
+      setBusy(true);
+
+      const placa = normalizePlacaValue(vehiculo.Placa || "", placaPattern);
+      let vehiculoGuardado = false;
+      const item: Record<string, unknown> = {
+        [VEH_FIELDS.Title]: placa,
+        [VEH_FIELDS.SOAT]: vehiculo.SOAT || "",
+        [VEH_FIELDS.Codigo]: normalizeCodigoVehicular(vehiculo.CodigoInterno || ""),
+        [VEH_FIELDS.Marca]: vehiculo.Marca || "",
+        [VEH_FIELDS.Modelo]: vehiculo.Modelo || "",
+        [VEH_FIELDS.Capacidad]: vehiculo.Capacidad || "",
+        [VEH_FIELDS.CapacidadOtros]: vehiculo.Otros || "",
+        [VEH_FIELDS.Rampa]: !!vehiculo.Rampa,
+        [VEH_FIELDS.LargoRampa]: vehiculo.LargoRampa || "",
+        [VEH_FIELDS.AnchoRampa]: vehiculo.AnchoRampa || "",
+        [VEH_FIELDS.Bonificacion]: !!vehiculo.Bonificacion,
+        [VEH_FIELDS.RielesLogisticos]: !!vehiculo.RielesLogisticos,
+        [VEH_FIELDS.Propiedad]: !!vehiculo.Propiedad,
+        [VEH_FIELDS.Resolucion]: vehiculo.NroResolucion || "",
+        [VEH_FIELDS.MedidasInternas]: vehiculo.MedidasInternas || "",
+        [VEH_FIELDS.MedidasExternas]: vehiculo.MedidasExternas || "",
+        [VEH_FIELDS.AlturaPiso]: vehiculo.AlturaPiso || "",
+        [VEH_FIELDS.PesoCargaUtil]: vehiculo.PesoCargaUtil || "",
+        [VEH_FIELDS.PesoBruto]: vehiculo.PesoNeto || "",
+        [VEH_FIELDS.Temperatura]: vehiculo.Temperatura || "",
+        [VEH_FIELDS.TipoTemperatura]: vehiculo.TipoTemperatura || "",
+        [VEH_FIELDS.TipoUnidad]: vehiculo.TipoUnidad || "",
+        [VEH_FIELDS.Activo]: vehiculo.Activo !== false,
+        [VEH_FIELDS.Correos]: cleanRichText(vehiculo.CorreosNotificacion),
+      };
+
+      if (vehiculo.EmpresaId && Number(vehiculo.EmpresaId) > 0) {
+        item[`${VEH_FIELDS.Proveedor}Id`] = Number(vehiculo.EmpresaId);
+      }
+
+      const vehList = sp.web.lists.getByTitle(LISTS.Vehiculos);
+
+      if (accion === "actualizar" && vehiculo.Id && vehiculo.Id > 0) {
+        await vehList.items
+          .getById(vehiculo.Id)
+          .update(item as Record<string, unknown>);
+      } else {
+        await vehList.items.add(item as Record<string, unknown>);
+      }
+      vehiculoGuardado = true;
+
+      if (!Transportista) {
+        try {
+          await saveCertificadosDeVehiculoSimple({ placa, doc, docsFlags });
+        } catch (errDocs) {
+          console.error("Error al guardar certificados", errDocs);
+          if (vehiculoGuardado) {
+            setErrorModal({
+              title: "Guardado parcial",
+              message:
+                "El veh?culo se guard?, pero hubo un error al guardar la documentaci?n. Intent? nuevamente.",
+            });
+          }
+          return;
+        }
+      }
+
+      if (isModalDriven) {
+        notifyModalClose({
+          action: "saved",
+          id: vehiculo.Id || undefined,
+          placa,
+        });
+        return;
+      }
+
+      alert("Veh?culo y certificados guardados correctamente.");
+
+      if (redireccion && urlRedireccion && urlRedireccion.trim()) {
+        redirectContainingPage(resolveRedirectUrl(urlRedireccion));
+        return;
+      }
+
+      resetFormulario(undefined, { scrollTop: true });
+    } catch (err) {
+      console.error("Error al guardar veh?culo o certificados", err);
+      const raw = getErrorText(err);
+      const placa = (vehiculo.Placa || "").trim();
+
+      if (isDuplicatePlacaError(raw) && placa) {
+        setErrorModal({
+          title: "Error al guardar",
+          message: `Error, no se puede hacer un doble registro de un veh?culo con placa ${placa}.`,
+        });
+      } else {
+        setErrorModal({
+          title: "Error al guardar",
+          message:
+            "Ocurri? un error al guardar el veh?culo. Verific? los datos e intent? nuevamente.",
+        });
+      }
+    } finally {
+      setBusy(false);
+    }
+  }, [
+    accion,
+    vehiculo,
+    doc,
+    docsFlags,
+    sp,
+    Borrar,
+    lockedFields,
+    Transportista,
+    redireccion,
+    urlRedireccion,
+    spContext,
+    redirectContainingPage,
+    resolveRedirectUrl,
+    isModalDriven,
+    notifyModalClose,
+    deleteVehiculoYCertificados,
+    resetFormulario,
+  ]);
+
+  const onCancelar = React.useCallback((): void => {
+    if (isModalDriven) {
+      notifyModalClose({ action: "cancelled" });
+      return;
+    }
+
+    window.location.reload();
+  }, [isModalDriven, notifyModalClose]);
+
+  const handleRowDoubleClick = React.useCallback(
+    async (veh: IVehiculoItemFull): Promise<void> => {
+      selectionLockedRef.current = true;
+
+      setVehiculo({
+        Id: veh.Id,
+        Title: veh.Title || "",
+        Proveedor: veh.Proveedor || "",
+        SOAT: veh.SOAT || "",
+        CodigoInterno: veh.CodigoInterno || "",
+        Placa: veh.Title || "",
+        Codigo: veh.CodigoInterno || "",
+        Marca: veh.Marca || "",
+        Modelo: veh.Modelo || "",
+        Capacidad: veh.Capacidad || "",
+        Otros: veh.Otros || "",
+        Rampa: !!veh.Rampa,
+        LargoRampa: veh.LargoRampa || "",
+        AnchoRampa: veh.AnchoRampa || "",
+        Bonificacion: !!veh.Bonificacion,
+        RielesLogisticos: !!veh.RielesLogisticos,
+        Propiedad: !!veh.Propiedad,
+        NroResolucion: veh.NroResolucion || "",
+        MedidasInternas: veh.MedidasInternas || "",
+        MedidasExternas: veh.MedidasExternas || "",
+        AlturaPiso: veh.AlturaPiso || "",
+        PesoCargaUtil: veh.PesoCargaUtil || "",
+        PesoNeto: veh.PesoNeto || "",
+        Temperatura: veh.Temperatura || "",
+        TipoTemperatura: veh.TipoTemperatura || "",
+        TipoUnidad: veh.TipoUnidad || "",
+        Activo: veh.Activo !== false,
+        CorreosNotificacion: cleanRichText(veh.CorreosNotificacion),
+        Empresa: veh.Empresa || veh.Proveedor || "",
+        EmpresaId: veh.EmpresaId,
+      });
+
+      try {
+        const certRows = await getCertificadosListado(veh.Title || "");
+
+        setDoc(() => {
+          const next: DocStateLocal = {
+            propFile: undefined,
+            revTecDate: "",
+            revTecText: "",
+            revTecFile: undefined,
+            resBonificacionFile: undefined,
+            fumigacionDate: "",
+            fumigacionFile: undefined,
+            SanipesDate: "",
+            SanipesText: "",
+            sanipesFile: undefined,
+            termokingDate: "",
+            termokingFile: undefined,
+            limpiezaDate: "",
+            limpiezaFile: undefined,
+          };
+
+          const toYMD = (v?: string | undefined): string =>
+            v ? new Date(v).toISOString().slice(0, 10) : "";
+
+          for (const c of certRows) {
+            const tipo = (c.tipo || "").toUpperCase();
+
+            if (tipo.includes("TARJETA") && tipo.includes("PROPIEDAD")) {
+              next.propFile = c.archivo ? { name: c.archivo } : undefined;
+            }
+
+            if (
+              tipo.includes("REVISI") &&
+              (tipo.includes("TÉCN") || tipo.includes("TECN"))
+            ) {
+              next.revTecDate = toYMD(c.caducidad || undefined);
+              next.revTecText =
+                c.anio !== undefined && c.anio !== null ? String(c.anio) : "";
+              next.revTecFile = c.archivo || undefined;
+            }
+
+            if (tipo.includes("FUMIG")) {
+              next.fumigacionDate = dateOnly(c.emision || undefined);
+              next.fumigacionFile = c.archivo || undefined;
+            }
+
+            if (tipo.includes("BONIFIC")) {
+              next.resBonificacionFile = c.archivo || undefined;
+            }
+
+            if (tipo.includes("SANIPES")) {
+              next.SanipesDate = dateOnly(
+                c.resolucion || c.emision || undefined
+              );
+              next.SanipesText = c.expediente || "";
+              next.sanipesFile = c.archivo || undefined;
+            }
+
+            if (tipo.includes("TERMO")) {
+              next.termokingDate = dateOnly(c.emision || undefined);
+              next.termokingFile = c.archivo || undefined;
+            }
+
+            if (
+              tipo.includes("LIMPIEZA") ||
+              tipo.includes("DESINFECCION") ||
+              tipo.includes("DESINFECCIÓN")
+            ) {
+              next.limpiezaDate = dateOnly(c.emision || undefined);
+              next.limpiezaFile = c.archivo || undefined;
+            }
+          }
+
+          return next;
+        });
+      } catch (err) {
+        console.error("Error cargando certificados", err);
+        alert("No se pudo cargar la documentaci?n de este veh?culo.");
       }
 
       if (accion === "baja") {
@@ -1471,7 +1834,7 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
       _setVehiculos(mapped);
     } catch (err) {
       console.error("Error leyendo lista Vehiculos", err);
-      alert("No se pudo cargar la lista de vehículos.");
+      alert("No se pudo cargar la lista de veh?culos.");
     }
   }, [sp, Proveedor, Transportista, empresaUsuarioId]);
 
@@ -1489,33 +1852,34 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
 
   const missingDocsRequiredLabels = React.useMemo((): string[] => {
     if (accion === "baja") return [];
-    if (Transportista) return []; // no se exige documentación
+    if (Transportista) return []; // no se exige documentaci?n
 
     const missing: string[] = [];
 
     // Tarjeta de propiedad (siempre)
     if (!hasDocFileUI(doc.propFile)) missing.push("Tarjeta de propiedad");
+    if (Proveedor) return missing;
 
-    // Revisión técnica (siempre)
+    // Revisi?n t?cnica (siempre)
     if (!hasValueUI(doc.revTecDate))
-      missing.push("Fecha de vencimiento (Revisión técnica)");
+      missing.push("Fecha de vencimiento (Revisi?n t?cnica)");
     if (!hasValueUI(doc.revTecText))
-      missing.push("Año de fabricación (Revisión técnica)");
+      missing.push("A?o de fabricaci?n (Revisi?n t?cnica)");
     if (!hasDocFileUI(doc.revTecFile))
-      missing.push("Documento (Revisión técnica)");
+      missing.push("Documento (Revisi?n t?cnica)");
 
-    // Fumigación (si aplica)
+    // Fumigaci?n (si aplica)
     if (docsFlags.showFumigacion) {
       if (!hasValueUI(doc.fumigacionDate))
-        missing.push("Fecha de emisión (Fumigación)");
+        missing.push("Fecha de emisi?n (Fumigaci?n)");
       if (!hasDocFileUI(doc.fumigacionFile))
-        missing.push("Certificado de fumigación");
+        missing.push("Certificado de fumigaci?n");
     }
 
     // Termoking (si aplica)
     if (docsFlags.showTermoking) {
       if (!hasValueUI(doc.termokingDate))
-        missing.push("Fecha de emisión (Termoking)");
+        missing.push("Fecha de emisi?n (Termoking)");
       if (!hasDocFileUI(doc.termokingFile))
         missing.push("Certificado de mantenimiento de termoking");
     }
@@ -1523,21 +1887,21 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
     // Limpieza (si aplica)
     if (docsFlags.showLimpieza) {
       if (!hasValueUI(doc.limpiezaDate))
-        missing.push("Fecha de emisión (Limpieza y desinfección)");
+        missing.push("Fecha de emisi?n (Limpieza y desinfecci?n)");
       if (!hasDocFileUI(doc.limpiezaFile))
-        missing.push("Certificado de limpieza y desinfección");
+        missing.push("Certificado de limpieza y desinfecci?n");
     }
 
-    // Bonificación (si aplica)
+    // Bonificaci?n (si aplica)
     if (docsFlags.showResBonificacion) {
       if (!hasDocFileUI(doc.resBonificacionFile))
-        missing.push("Resolución de bonificación");
+        missing.push("Resoluci?n de bonificaci?n");
     }
 
     // SANIPES no obligatorio => no validar
 
     return missing;
-  }, [accion, Transportista, doc, docsFlags]);
+  }, [Proveedor, accion, Transportista, doc, docsFlags]);
 
   const missingRequiredLabels = React.useMemo((): string[] => {
     if (accion === "baja") return [];
@@ -1566,6 +1930,16 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
         missing.push(label);
       }
     };
+    if (Proveedor) {
+      req(vehiculo.EmpresaId, "Empresa", ["Empresa", "EmpresaId"]);
+      req(vehiculo.Placa, "Placa", ["Placa", "Title"]);
+      if (vehiculo.Placa && !isPlacaValid(vehiculo.Placa, placaPattern)) {
+        missing.push("Placa");
+      }
+      req(vehiculo.Marca, "Marca", "Marca");
+      req(vehiculo.Modelo, "Modelo", "Modelo");
+      return missing;
+    }
 
     // Empresa
     req(vehiculo.EmpresaId, "Empresa", ["Empresa", "EmpresaId"]);
@@ -1585,14 +1959,17 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
     req(vehiculo.Modelo, "Modelo", "Modelo");
 
     req(vehiculo.Placa, "Placa", ["Placa", "Title"]);
+    if (vehiculo.Placa && !isPlacaValid(vehiculo.Placa, placaPattern)) {
+      missing.push("Placa");
+    }
     req(vehiculo.SOAT, "SOAT", "SOAT");
-    req(vehiculo.Codigo || vehiculo.CodigoInterno, "Código de unidad", [
-      "Codigo",
-      "CodigoInterno",
-    ]);
+    if (showCodigoVehicular) {
+      req(vehiculo.Codigo || vehiculo.CodigoInterno, "Código de unidad", [
+        "Codigo",
+        "CodigoInterno",
+      ]);
+    }
     req(vehiculo.Capacidad, "Capacidad", "Capacidad");
-    req(vehiculo.MedidasInternas, "Medida interna", "MedidasInternas");
-    req(vehiculo.MedidasExternas, "Medida externa", "MedidasExternas");
     req(vehiculo.AlturaPiso, "Altura de piso al furgón", "AlturaPiso");
     req(vehiculo.PesoCargaUtil, "Peso útil", "PesoCargaUtil");
     req(vehiculo.PesoNeto, "Peso bruto", "PesoNeto");
@@ -1608,9 +1985,8 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
       req(vehiculo.LargoRampa, "Largo de rampa", "LargoRampa");
       req(vehiculo.AnchoRampa, "Ancho de rampa", "AnchoRampa");
     }
-
     return missing;
-  }, [accion, vehiculo, lockedFields]);
+  }, [Proveedor, accion, vehiculo, lockedFields, placaPattern, showCodigoVehicular]);
 
   React.useEffect((): void => {
     if (accion === "baja") {
@@ -1622,7 +1998,7 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
 
     if (allMissing.length > 0) {
       setValidationError(
-        "Completá los campos obligatorios: " + allMissing.join(", ")
+        "Complet? los campos obligatorios: " + allMissing.join(", ")
       );
     } else {
       setValidationError(undefined);
@@ -1679,42 +2055,46 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
                 <div className={classes.heroTitle}>Vehiculo</div>
               </div>
             </div>
-            <div className={classes.actions}>
-              <ActionTile
-                icon="Add"
-                label="Ingresar"
-                selected={accion === "crear"}
-                disabled={busy}
-                onClick={onIngresarClick}
-              />
+            {!isUrlDrivenEdit && (
+              <div className={classes.actions}>
+                <ActionTile
+                  icon="Add"
+                  label="Ingresar"
+                  selected={accion === "crear"}
+                  disabled={busy}
+                  onClick={onIngresarClick}
+                />
 
-              <ActionTile
-                icon="Edit"
-                label="Modificar"
-                selected={accion === "actualizar"}
-                disabled={busy}
-                onClick={(): void => {
-                  setAccion("actualizar");
-                  setModo("MODIFICAR");
-                  cargarVehiculos().catch((e) => console.error(e));
-                }}
-              />
+                <ActionTile
+                  icon="Edit"
+                  label="Modificar"
+                  selected={accion === "actualizar"}
+                  disabled={busy}
+                  onClick={(): void => {
+                    setAccion("actualizar");
+                    setModo("MODIFICAR");
+                    cargarVehiculos().catch((e) => console.error(e));
+                  }}
+                />
 
-              <ActionTile
-                icon="Delete"
-                label="Dar de baja"
-                selected={accion === "baja"}
-                disabled={busy}
-                onClick={(): void => {
-                  setAccion("baja");
-                  setModo("BAJA");
-                  cargarVehiculos().catch((e) => console.error(e));
-                }}
-              />
-            </div>
+                <ActionTile
+                  icon="Delete"
+                  label="Dar de baja"
+                  selected={accion === "baja"}
+                  disabled={busy}
+                  onClick={(): void => {
+                    setAccion("baja");
+                    setModo("BAJA");
+                    cargarVehiculos().catch((e) => console.error(e));
+                  }}
+                />
+              </div>
+            )}
           </div>
 
-          {accion !== "crear" && (modo === "MODIFICAR" || modo === "BAJA") && (
+          {!isUrlDrivenEdit &&
+            accion !== "crear" &&
+            (modo === "MODIFICAR" || modo === "BAJA") && (
             <VehiculosGrid
               vehiculos={vehiculos}
               onRowDoubleClick={handleRowDoubleClick}
@@ -1725,33 +2105,7 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
             vehiculo={vehiculo}
             setVehiculo={setVehiculo}
             disabled={busy || accion === "baja"}
-            required={{
-              EmpresaId: true,
-              Temperatura: true,
-              TipoUnidad: true,
-              TipoTemperatura: true,
-
-              Placa: true,
-              SOAT: true,
-              CodigoInterno: true,
-              Marca: true,
-              Modelo: true,
-
-              Capacidad: true,
-              Otros: true,
-              MedidasInternas: true,
-              MedidasExternas: true,
-              AlturaPiso: true,
-              PesoCargaUtil: true,
-              PesoNeto: true,
-
-              // NO forzar toggles:
-              // Bonificacion: false,
-              // NroResolucion: false,
-              // Rampa: false,
-              // LargoRampa: false,
-              // AnchoRampa: false,
-            }}
+            required={requiredVehicleFields}
             isChoice={(n: string): boolean =>
               ["Temperatura", "TipoTemperatura", "TipoUnidad"].includes(n)
             }
@@ -1760,11 +2114,13 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
             choices={choices}
             lookups={{}}
             empresaBloqueada={empresaBloqueada}
+            proveedor={Proveedor}
             bonificacionBloqueada={!!Transportista}
             lockedFields={lockedFields}
             proveedoresList={proveedoresList}
             proveedoresDisplayField={proveedoresDisplayField}
             proveedoresUserField={proveedoresUserField}
+            placaFormat={placaFormat}
             alturaPisoHelpImageUrl={alturaPisoHelpImageUrl}
           />
 

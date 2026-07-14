@@ -17,6 +17,7 @@ export interface IRegistroVehicularWebPartProps {
   proveedoresList: string;
   proveedoresDisplayField: string;
   proveedoresUserField: string;
+  placaFormat: string;
 
   Proveedor: boolean;
   Distribuidor: boolean;
@@ -40,6 +41,7 @@ export default class RegistroVehicularWebPart extends BaseClientSideWebPart<IReg
       proveedoresList: "Proveedores",
       proveedoresDisplayField: "Title",
       proveedoresUserField: "Usuarios",
+      placaFormat: this.properties.placaFormat || "",
 
       Proveedor: this.properties.Proveedor ?? false,
       Distribuidor: false,
@@ -119,6 +121,17 @@ export default class RegistroVehicularWebPart extends BaseClientSideWebPart<IReg
                 PropertyPaneTextField("alturaPisoHelpImageUrl", {
                   label: "URL imagen ayuda (Altura de piso al furgón)",
                   placeholder: "https://.../Altura.png",
+                }),
+              ],
+            },
+            {
+              groupName: "Validaciones",
+              groupFields: [
+                PropertyPaneTextField("placaFormat", {
+                  label: "Formato de placa",
+                  placeholder: "[3]-[3]",
+                  description:
+                    "Ejemplo: [3]-[3], [4]-[3]. El guion es opcional al cargar, pero se valida la cantidad maxima de caracteres.",
                 }),
               ],
             },
