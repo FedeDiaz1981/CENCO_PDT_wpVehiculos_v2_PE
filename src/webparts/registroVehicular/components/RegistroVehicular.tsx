@@ -73,7 +73,7 @@ type IVehiculoItemFull = IVehiculoItem & {
   EmpresaId?: number;
 };
 
-type DocFileValue = File | { name: string } | string | undefined;
+type DocFileValue = File | { name: string; url?: string } | string | undefined;
 
 type DocStateLocal = {
   propFile?: DocFileValue;
@@ -133,6 +133,18 @@ const docinicial: DocStateLocal = {
   SanipesText: "",
   termokingFile: undefined,
   limpiezaFile: undefined,
+};
+
+const getDocFileName = (v: DocFileValue): string | undefined => {
+  if (!v) return undefined;
+  if (typeof v === "string") return v;
+  if (typeof v === "object" && "name" in v) return String(v.name);
+  return undefined;
+};
+
+const getDocFileUrl = (v: DocFileValue): string | undefined => {
+  if (!v || typeof v !== "object" || v instanceof File) return undefined;
+  return "url" in v ? String(v.url || "") || undefined : undefined;
 };
 
 type TempKey = "con temperatura" | "seco";
@@ -336,13 +348,6 @@ const DocumentacionLiteLocal: React.FC<{
     return arr;
   }, []);
 
-  const getExistingName = (f: DocFileValue): string | undefined => {
-    if (!f) return undefined;
-    if (typeof f === "string") return f;
-    if (typeof f === "object" && "name" in f) return String(f.name);
-    return undefined;
-  };
-
   const todayStr = React.useMemo((): string => {
     const d = new Date();
     d.setHours(0, 0, 0, 0);
@@ -359,7 +364,7 @@ const DocumentacionLiteLocal: React.FC<{
           iconName="Page"
           styles={{ root: { fontSize: 20, color: theme.palette.themePrimary } }}
         />
-        <div className={classes.cardTitle}>2- Documentaci?n</div>
+        <div className={classes.cardTitle}>2- Documentación</div>
       </div>
       <Separator />
 
@@ -368,7 +373,8 @@ const DocumentacionLiteLocal: React.FC<{
           <DocCard
             title="Tarjeta de propiedad *"
             file={fileOut(doc.propFile)}
-            existingFileName={getExistingName(doc.propFile)}
+            existingFileName={getDocFileName(doc.propFile)}
+            fileUrl={getDocFileUrl(doc.propFile)}
             onFileChange={
               disabled
                 ? undefined
@@ -380,9 +386,10 @@ const DocumentacionLiteLocal: React.FC<{
         {showResBonificacion && (
           <div className={`${classes.docItem} ${classes.docLabelScope}`}>
             <DocCard
-              title="Resoluci?n de bonificaci?n *"
+              title="Resolución de bonificación *"
               file={fileOut(doc.resBonificacionFile)}
-              existingFileName={getExistingName(doc.resBonificacionFile)}
+              existingFileName={getDocFileName(doc.resBonificacionFile)}
+            fileUrl={getDocFileUrl(doc.resBonificacionFile)}
               onFileChange={
                 disabled
                   ? undefined
@@ -395,8 +402,8 @@ const DocumentacionLiteLocal: React.FC<{
         {showFumigacion && (
           <div className={`${classes.docItem} ${classes.docLabelScope}`}>
             <DocCard
-              title="Certificado de fumigaci?n *"
-              dateLabel="Fecha de emisi?n *"
+              title="Certificado de fumigación *"
+              dateLabel="Fecha de emisión *"
               dateValue={doc.fumigacionDate || ""}
               onDateChange={
                 disabled
@@ -405,7 +412,8 @@ const DocumentacionLiteLocal: React.FC<{
               }
               dateMax={todayStr}
               file={fileOut(doc.fumigacionFile)}
-              existingFileName={getExistingName(doc.fumigacionFile)}
+              existingFileName={getDocFileName(doc.fumigacionFile)}
+            fileUrl={getDocFileUrl(doc.fumigacionFile)}
               onFileChange={
                 disabled
                   ? undefined
@@ -417,7 +425,7 @@ const DocumentacionLiteLocal: React.FC<{
 
         <div className={`${classes.docItem} ${classes.docLabelScope}`}>
           <DocCard
-            title="Revisi?n t?cnica *"
+            title="Revisión técnica *"
             dateLabel="Fecha de vencimiento *"
             dateValue={doc.revTecDate || ""}
             onDateChange={
@@ -426,7 +434,7 @@ const DocumentacionLiteLocal: React.FC<{
                 : (value?: string) => setField("revTecDate")(value || "")
             }
             dateMin={todayStr}
-            textLabel="A?o de fabricaci?n *"
+            textLabel="Año de fabricación *"
             textValue={doc.revTecText ?? ""}
             onTextChange={
               disabled
@@ -436,7 +444,8 @@ const DocumentacionLiteLocal: React.FC<{
             textAsDropdown
             textOptions={yearOptions}
             file={fileOut(doc.revTecFile)}
-            existingFileName={getExistingName(doc.revTecFile)}
+            existingFileName={getDocFileName(doc.revTecFile)}
+            fileUrl={getDocFileUrl(doc.revTecFile)}
             onFileChange={
               disabled
                 ? undefined
@@ -465,7 +474,8 @@ const DocumentacionLiteLocal: React.FC<{
                   : (v?: string) => setField("SanipesText")(String(v ?? ""))
               }
               file={fileOut(doc.sanipesFile)}
-              existingFileName={getExistingName(doc.sanipesFile)}
+              existingFileName={getDocFileName(doc.sanipesFile)}
+            fileUrl={getDocFileUrl(doc.sanipesFile)}
               onFileChange={
                 disabled
                   ? undefined
@@ -479,7 +489,7 @@ const DocumentacionLiteLocal: React.FC<{
           <div className={`${classes.docItem} ${classes.docLabelScope}`}>
             <DocCard
               title="Certificado de mantenimiento de termoking *"
-              dateLabel="Fecha de emisi?n *"
+              dateLabel="Fecha de emisión *"
               dateValue={doc.termokingDate || ""}
               onDateChange={
                 disabled
@@ -488,7 +498,8 @@ const DocumentacionLiteLocal: React.FC<{
               }
               dateMax={todayStr}
               file={fileOut(doc.termokingFile)}
-              existingFileName={getExistingName(doc.termokingFile)}
+              existingFileName={getDocFileName(doc.termokingFile)}
+            fileUrl={getDocFileUrl(doc.termokingFile)}
               onFileChange={
                 disabled
                   ? undefined
@@ -501,8 +512,8 @@ const DocumentacionLiteLocal: React.FC<{
         {showLimpieza && (
           <div className={`${classes.docItem} ${classes.docLabelScope}`}>
             <DocCard
-              title="Limpieza y desinfecci?n *"
-              dateLabel="Fecha de emisi?n *"
+              title="Limpieza y desinfección *"
+              dateLabel="Fecha de emisión *"
               dateValue={doc.limpiezaDate || ""}
               onDateChange={
                 disabled
@@ -511,7 +522,8 @@ const DocumentacionLiteLocal: React.FC<{
               }
               dateMax={todayStr}
               file={fileOut(doc.limpiezaFile)}
-              existingFileName={getExistingName(doc.limpiezaFile)}
+              existingFileName={getDocFileName(doc.limpiezaFile)}
+            fileUrl={getDocFileUrl(doc.limpiezaFile)}
               onFileChange={
                 disabled
                   ? undefined
@@ -567,7 +579,7 @@ const Notificaciones: React.FC<{
         <Stack tokens={{ childrenGap: 12 }}>
           <Stack.Item grow className={classes.fieldCell}>
             <TextField
-              label="Correos de notificaci?n"
+              label="Correos de notificación"
               placeholder="correo1@dominio.com; correo2@dominio.com"
               value={value}
               onChange={(_, v) =>
@@ -628,12 +640,12 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
     [spContext]
   );
 
-  const [accion, setAccion] = React.useState<"crear" | "actualizar" | "baja">(
-    "crear"
-  );
-  const [modo, setModo] = React.useState<"INGRESAR" | "MODIFICAR" | "BAJA">(
-    "INGRESAR"
-  );
+  const [accion, setAccion] = React.useState<
+    "crear" | "actualizar" | "baja" | "visualizar"
+  >("crear");
+  const [modo, setModo] = React.useState<
+    "INGRESAR" | "MODIFICAR" | "BAJA" | "VISUALIZAR"
+  >("INGRESAR");
   const [vehiculos, _setVehiculos] = React.useState<IVehiculoItemFull[]>([]);
   const [busy, setBusy] = React.useState<boolean>(false);
   const [vehiculo, setVehiculo] =
@@ -644,7 +656,9 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
   );
   const requiredVehicleFields = React.useMemo(
     (): Record<string, boolean | undefined> =>
-      Proveedor
+      accion === "visualizar"
+        ? {}
+        : Proveedor
         ? {
             EmpresaId: true,
             Placa: true,
@@ -669,7 +683,7 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
             PesoCargaUtil: true,
             PesoNeto: true,
           },
-    [Proveedor, showCodigoVehicular]
+    [Proveedor, accion, showCodigoVehicular]
   );
   const [empresaBloqueada, setEmpresaBloqueada] =
     React.useState<boolean>(false);
@@ -703,6 +717,10 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
   const [errorModal, setErrorModal] = React.useState<{
     title: string;
     message: string;
+  } | null>(null);
+  const [cargaPendiente, setCargaPendiente] = React.useState<{
+    vehiculoId: number;
+    placa: string;
   } | null>(null);
   const topRef = React.useRef<HTMLDivElement | null>(null);
   const selectionLockedRef = React.useRef<boolean>(false);
@@ -848,10 +866,11 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
 
   const resetFormulario = React.useCallback(
     (
-      nextAccion?: "crear" | "actualizar" | "baja",
+      nextAccion?: "crear" | "actualizar" | "baja" | "visualizar",
       opts?: { scrollTop?: boolean }
     ): void => {
       selectionLockedRef.current = false;
+      setCargaPendiente(null);
 
       if (nextAccion) {
         setAccion(nextAccion);
@@ -897,6 +916,7 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
       setDoc({ ...docinicial });
       setValidationError(undefined);
       setFechaError(undefined);
+      setCargaPendiente(null);
 
       if (opts?.scrollTop) {
         window.requestAnimationFrame(() => {
@@ -913,6 +933,14 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
 
   const onIngresarClick = (): void => {
     resetFormulario("crear", { scrollTop: true });
+  };
+
+  const onVisualizarClick = (): void => {
+    resetFormulario("visualizar", { scrollTop: true });
+    setModo("VISUALIZAR");
+    cargarVehiculos({ includeFinalizados: true }).catch((e) =>
+      console.error(e)
+    );
   };
 
   const choices = {
@@ -1004,7 +1032,10 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
   );
 
   const hydrateSelection = React.useCallback(
-    async (veh: IVehiculoItemFull, nextAction: "actualizar" | "baja"): Promise<void> => {
+    async (
+      veh: IVehiculoItemFull,
+      nextAction: "actualizar" | "baja" | "visualizar"
+    ): Promise<void> => {
       selectionLockedRef.current = true;
 
       setVehiculo({
@@ -1120,7 +1151,13 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
         alert("No se pudo cargar la documentaci?n de este veh?culo.");
       }
 
-      setModo(nextAction === "baja" ? "BAJA" : "MODIFICAR");
+      setModo(
+        nextAction === "baja"
+          ? "BAJA"
+          : nextAction === "visualizar"
+          ? "VISUALIZAR"
+          : "MODIFICAR"
+      );
       setAccion(nextAction);
       setValidationError(undefined);
     },
@@ -1128,8 +1165,13 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
   );
 
   const loadVehicleForEdit = React.useCallback(
-    async (vehiculoId: number, nextAction: "actualizar" | "baja" = "actualizar"): Promise<boolean> => {
+    async (
+      vehiculoId: number,
+      nextAction: "actualizar" | "baja" | "visualizar" = "actualizar"
+    ): Promise<boolean> => {
       if (!vehiculoId || vehiculoId <= 0) return false;
+
+      setCargaPendiente(null);
 
       const item = (await sp.web.lists
         .getByTitle(LISTS.Vehiculos)
@@ -1236,7 +1278,9 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
     "CodigoInterno",
   ];
   const lockedFields =
-    accion === "actualizar" || !!Transportista ? baseLockedFields : [];
+    accion === "actualizar" || accion === "visualizar" || !!Transportista
+      ? baseLockedFields
+      : [];
 
   function dateOnly(v?: string | undefined): string {
     if (!v) return "";
@@ -1510,7 +1554,8 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
       setBusy(true);
 
       const placa = normalizePlacaValue(vehiculo.Placa || "", placaPattern);
-      let vehiculoGuardado = false;
+      const isCreateFlow = accion === "crear";
+      let savedVehiculoId = vehiculo.Id || 0;
       const item: Record<string, unknown> = {
         [VEH_FIELDS.Title]: placa,
         [VEH_FIELDS.SOAT]: vehiculo.SOAT || "",
@@ -1548,31 +1593,56 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
         await vehList.items
           .getById(vehiculo.Id)
           .update(item as Record<string, unknown>);
+        savedVehiculoId = vehiculo.Id;
       } else {
-        await vehList.items.add(item as Record<string, unknown>);
+        const addResult = (await vehList.items.add(
+          item as Record<string, unknown>
+        )) as { data?: { Id?: number; ID?: number } };
+        savedVehiculoId =
+          addResult.data?.Id ?? addResult.data?.ID ?? savedVehiculoId;
+        if (!savedVehiculoId) {
+          const found = (await vehList.items
+            .select("Id")
+            .filter(`${VEH_FIELDS.Title} eq '${placa.replace(/'/g, "''")}'`)
+            .top(1)()) as Array<{ Id?: number }>;
+          savedVehiculoId = found?.[0]?.Id ?? 0;
+        }
       }
-      vehiculoGuardado = true;
+
+      if (savedVehiculoId > 0) {
+        setVehiculo((prev) => ({ ...prev, Id: savedVehiculoId, Placa: placa, Title: placa }));
+      }
 
       if (!Transportista) {
         try {
           await saveCertificadosDeVehiculoSimple({ placa, doc, docsFlags });
         } catch (errDocs) {
           console.error("Error al guardar certificados", errDocs);
-          if (vehiculoGuardado) {
+          if (isCreateFlow && savedVehiculoId > 0) {
+            setCargaPendiente({ vehiculoId: savedVehiculoId, placa });
+            setModo("MODIFICAR");
+            setAccion("actualizar");
+            setErrorModal({
+              title: "Carga parcial",
+              message:
+                "El vehículo se guardó, pero hubo un error al guardar la documentación. Podés completar lo faltante o cancelar la carga para revertir todo.",
+            });
+          } else {
             setErrorModal({
               title: "Guardado parcial",
               message:
-                "El veh?culo se guard?, pero hubo un error al guardar la documentaci?n. Intent? nuevamente.",
+                "El vehículo se guardó, pero hubo un error al guardar la documentación. Intentá nuevamente.",
             });
           }
           return;
         }
       }
 
+      setCargaPendiente(null);
       if (isModalDriven) {
         notifyModalClose({
           action: "saved",
-          id: vehiculo.Id || undefined,
+          id: savedVehiculoId || undefined,
           placa,
         });
         return;
@@ -1625,15 +1695,6 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
     deleteVehiculoYCertificados,
     resetFormulario,
   ]);
-
-  const onCancelar = React.useCallback((): void => {
-    if (isModalDriven) {
-      notifyModalClose({ action: "cancelled" });
-      return;
-    }
-
-    window.location.reload();
-  }, [isModalDriven, notifyModalClose]);
 
   const cargarVehiculos = React.useCallback(
     async (opts?: { includeFinalizados?: boolean }): Promise<void> => {
@@ -1741,8 +1802,68 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
     [sp, Proveedor, Transportista, empresaUsuarioId]
   );
 
+  const onCancelar = React.useCallback((): void => {
+    if (cargaPendiente) {
+      const confirmRollback = window.confirm(
+        "Si cancelás la carga, se eliminará el vehículo y la documentación que ya se guardó. ¿Querés continuar?"
+      );
+      if (!confirmRollback) return;
+
+      setBusy(true);
+      deleteVehiculoYCertificados(sp, cargaPendiente.placa)
+        .then(() => {
+          setCargaPendiente(null);
+          resetFormulario("crear", { scrollTop: true });
+          cargarVehiculos({ includeFinalizados: false }).catch((err) =>
+            console.error(err)
+          );
+          if (isModalDriven) {
+            notifyModalClose({ action: "cancelled" });
+          }
+        })
+        .catch((err) => {
+          console.error("No se pudo revertir la carga parcial", err);
+          alert(
+            "No se pudo revertir la carga parcial. Revisá la consola e intentá nuevamente."
+          );
+        })
+        .finally(() => {
+          setBusy(false);
+        });
+      return;
+    }
+
+    if (accion === "visualizar") {
+      if (isModalDriven) {
+        notifyModalClose({ action: "cancelled" });
+        return;
+      }
+
+      resetFormulario("crear", { scrollTop: true });
+      return;
+    }
+
+    if (isModalDriven) {
+      notifyModalClose({ action: "cancelled" });
+      return;
+    }
+
+    window.location.reload();
+  }, [
+    cargaPendiente,
+    cargarVehiculos,
+    deleteVehiculoYCertificados,
+    accion,
+    isModalDriven,
+    notifyModalClose,
+    resetFormulario,
+    sp,
+  ]);
+
   const handleRowDoubleClick = React.useCallback(
     async (veh: IVehiculoItemFull): Promise<void> => {
+      setCargaPendiente(null);
+
       if (accion === "actualizar" && veh.Id && veh.Id > 0) {
         try {
           const current = (await sp.web.lists
@@ -1831,7 +1952,9 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
             const tipo = (c.tipo || "").toUpperCase();
 
             if (tipo.includes("TARJETA") && tipo.includes("PROPIEDAD")) {
-              next.propFile = c.archivo ? { name: c.archivo } : undefined;
+              next.propFile = c.archivo
+                ? { name: c.archivo, url: c.archivoUrl }
+                : undefined;
             }
 
             if (
@@ -1841,16 +1964,22 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
               next.revTecDate = toYMD(c.caducidad || undefined);
               next.revTecText =
                 c.anio !== undefined && c.anio !== null ? String(c.anio) : "";
-              next.revTecFile = c.archivo || undefined;
+              next.revTecFile = c.archivo
+                ? { name: c.archivo, url: c.archivoUrl }
+                : undefined;
             }
 
             if (tipo.includes("FUMIG")) {
               next.fumigacionDate = dateOnly(c.emision || undefined);
-              next.fumigacionFile = c.archivo || undefined;
+              next.fumigacionFile = c.archivo
+                ? { name: c.archivo, url: c.archivoUrl }
+                : undefined;
             }
 
             if (tipo.includes("BONIFIC")) {
-              next.resBonificacionFile = c.archivo || undefined;
+              next.resBonificacionFile = c.archivo
+                ? { name: c.archivo, url: c.archivoUrl }
+                : undefined;
             }
 
             if (tipo.includes("SANIPES")) {
@@ -1858,12 +1987,16 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
                 c.resolucion || c.emision || undefined
               );
               next.SanipesText = c.expediente || "";
-              next.sanipesFile = c.archivo || undefined;
+              next.sanipesFile = c.archivo
+                ? { name: c.archivo, url: c.archivoUrl }
+                : undefined;
             }
 
             if (tipo.includes("TERMO")) {
               next.termokingDate = dateOnly(c.emision || undefined);
-              next.termokingFile = c.archivo || undefined;
+              next.termokingFile = c.archivo
+                ? { name: c.archivo, url: c.archivoUrl }
+                : undefined;
             }
 
             if (
@@ -1872,7 +2005,9 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
               tipo.includes("DESINFECCIÓN")
             ) {
               next.limpiezaDate = dateOnly(c.emision || undefined);
-              next.limpiezaFile = c.archivo || undefined;
+              next.limpiezaFile = c.archivo
+                ? { name: c.archivo, url: c.archivoUrl }
+                : undefined;
             }
           }
 
@@ -1886,6 +2021,9 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
       if (accion === "baja") {
         setModo("BAJA");
         setAccion("baja");
+      } else if (accion === "visualizar") {
+        setModo("VISUALIZAR");
+        setAccion("visualizar");
       } else {
         setModo("MODIFICAR");
         setAccion("actualizar");
@@ -1909,7 +2047,7 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
   };
 
   const missingDocsRequiredLabels = React.useMemo((): string[] => {
-    if (accion === "baja") return [];
+    if (accion === "baja" || accion === "visualizar") return [];
     if (Transportista) return []; // no se exige documentaci?n
 
     const missing: string[] = [];
@@ -1962,7 +2100,7 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
   }, [Proveedor, accion, Transportista, doc, docsFlags]);
 
   const missingRequiredLabels = React.useMemo((): string[] => {
-    if (accion === "baja") return [];
+    if (accion === "baja" || accion === "visualizar") return [];
 
     const isLocked = (name: string): boolean =>
       (lockedFields || []).includes(name);
@@ -2047,7 +2185,7 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
   }, [Proveedor, accion, vehiculo, lockedFields, placaPattern, showCodigoVehicular]);
 
   React.useEffect((): void => {
-    if (accion === "baja") {
+    if (accion === "baja" || accion === "visualizar") {
       setValidationError(undefined);
       return;
     }
@@ -2138,6 +2276,14 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
                 />
 
                 <ActionTile
+                  icon="View"
+                  label="Visualizar"
+                  selected={accion === "visualizar"}
+                  disabled={busy}
+                  onClick={onVisualizarClick}
+                />
+
+                <ActionTile
                   icon="Delete"
                   label="Dar de baja"
                   selected={accion === "baja"}
@@ -2156,7 +2302,9 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
 
           {!isUrlDrivenEdit &&
             accion !== "crear" &&
-            (modo === "MODIFICAR" || modo === "BAJA") && (
+            (modo === "MODIFICAR" ||
+              modo === "BAJA" ||
+              modo === "VISUALIZAR") && (
             <VehiculosGrid
               vehiculos={vehiculos}
               onRowDoubleClick={handleRowDoubleClick}
@@ -2166,7 +2314,7 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
           <DatosVehiculo
             vehiculo={vehiculo}
             setVehiculo={setVehiculo}
-            disabled={busy || accion === "baja"}
+            disabled={busy || accion === "baja" || accion === "visualizar"}
             required={requiredVehicleFields}
             isChoice={(n: string): boolean =>
               ["Temperatura", "TipoTemperatura", "TipoUnidad"].includes(n)
@@ -2194,13 +2342,13 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
             showFumigacion={docsFlags.showFumigacion}
             showLimpieza={docsFlags.showLimpieza}
             showResBonificacion={docsFlags.showResBonificacion}
-            disabled={!!Transportista}
+            disabled={!!Transportista || accion === "visualizar"}
           />
 
           <Notificaciones
             vehiculo={vehiculo}
             setVehiculo={setVehiculo}
-            disabled={busy || accion === "baja"}
+            disabled={busy || accion === "baja" || accion === "visualizar"}
           />
 
           {fechaError && accion !== "baja" && (
@@ -2212,6 +2360,13 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
             </MessageBar>
           )}
 
+          {cargaPendiente && accion !== "baja" && (
+            <MessageBar messageBarType={MessageBarType.warning} isMultiline>
+              Carga parcial: el vehículo ya quedó guardado. Completá la
+              documentación faltante o usá "Cancelar carga" para revertirlo.
+            </MessageBar>
+          )}
+
           {validationError && accion !== "baja" && (
             <MessageBar messageBarType={MessageBarType.error} isMultiline>
               {validationError}
@@ -2219,34 +2374,44 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
           )}
 
           <div className={classes.footer}>
-            <PrimaryButton
-              text={
-                accion === "baja"
-                  ? "DAR DE BAJA"
-                  : accion === "actualizar"
-                  ? "GRABAR ACTUALIZACIÓN"
-                  : "GUARDAR"
-              }
-              onClick={onGuardar}
-              iconProps={{
-                iconName:
-                  accion === "baja"
-                    ? "Delete"
+            {accion !== "visualizar" && (
+              <PrimaryButton
+                text={
+                  cargaPendiente
+                    ? "GUARDAR"
+                    : accion === "baja"
+                    ? "DAR DE BAJA"
                     : accion === "actualizar"
-                    ? "Save"
-                    : "Save",
-              }}
-              disabled={
-                busy ||
-                (accion !== "baja" &&
-                  (!!fechaError ||
-                    missingRequiredLabels.length > 0 ||
-                    missingDocsRequiredLabels.length > 0))
-              }
-              styles={primaryButtonStyles}
-            />
+                    ? "GRABAR ACTUALIZACIÓN"
+                    : "GUARDAR"
+                }
+                onClick={onGuardar}
+                iconProps={{
+                  iconName:
+                    accion === "baja"
+                      ? "Delete"
+                      : accion === "actualizar"
+                      ? "Save"
+                      : "Save",
+                }}
+                disabled={
+                  busy ||
+                  (accion !== "baja" &&
+                    (!!fechaError ||
+                      missingRequiredLabels.length > 0 ||
+                      missingDocsRequiredLabels.length > 0))
+                }
+                styles={primaryButtonStyles}
+              />
+            )}
             <DefaultButton
-              text="Cancelar"
+              text={
+                accion === "visualizar"
+                  ? "Cerrar"
+                  : cargaPendiente
+                  ? "Cancelar carga"
+                  : "Cancelar"
+              }
               onClick={onCancelar}
               iconProps={{ iconName: "Clear" }}
               disabled={busy}

@@ -23,6 +23,7 @@ type DocCardProps = {
   textOptions?: { key: string; text: string }[];
   file?: File;
   existingFileName?: string;
+  fileUrl?: string;
   onFileChange?: (f?: File) => void;
   invalid?: boolean;
   showValidation?: boolean;
@@ -42,6 +43,7 @@ export const DocCard: React.FC<DocCardProps> = ({
   textOptions,
   file,
   existingFileName,
+  fileUrl,
   onFileChange,
   invalid,
   showValidation = false,
@@ -59,6 +61,7 @@ export const DocCard: React.FC<DocCardProps> = ({
   };
 
   const displayedFileName = file ? file.name : existingFileName || "";
+  const canDownload = !!fileUrl && !!displayedFileName;
 
   const validateDate = (value: string): boolean => {
     if (dateMax && value && value > dateMax) {
@@ -214,19 +217,37 @@ export const DocCard: React.FC<DocCardProps> = ({
           disabled={!onFileChange}
           styles={secondaryButtonStyles}
         />
-        <Text
-          variant="small"
-          styles={{
-            root: {
+        {canDownload ? (
+          <a
+            href={fileUrl}
+            download={displayedFileName}
+            target="_blank"
+            rel="noreferrer"
+            style={{
               display: "block",
               marginTop: 6,
-              color: theme.palette.neutralSecondary,
+              color: theme.palette.themePrimary,
               wordBreak: "break-word",
-            },
-          }}
-        >
-          {displayedFileName || "-"}
-        </Text>
+              textDecoration: "underline",
+            }}
+          >
+            {displayedFileName}
+          </a>
+        ) : (
+          <Text
+            variant="small"
+            styles={{
+              root: {
+                display: "block",
+                marginTop: 6,
+                color: theme.palette.neutralSecondary,
+                wordBreak: "break-word",
+              },
+            }}
+          >
+            {displayedFileName || "-"}
+          </Text>
+        )}
       </div>
     </div>
   );

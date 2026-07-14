@@ -1,9 +1,9 @@
-import * as React from "react";
+﻿import * as React from "react";
 import { Icon, Separator } from "@fluentui/react";
 import { classes } from "../../ui/styles";
 import { DocCard } from "../atoms/DocCard";
 
-type DocFileValue = File | { name: string } | string | undefined;
+type DocFileValue = File | { name: string; url?: string } | string | undefined;
 
 type DocStateLocal = {
   propFile?: DocFileValue;
@@ -50,7 +50,7 @@ const DocumentacionLite: React.FC<{
   showResBonificacion?: boolean;
   disabled?: boolean;
 
-  // NUEVO: para marcar recién después de intentar guardar
+  // NUEVO: para marcar reciÃ©n despuÃ©s de intentar guardar
   showValidation?: boolean;
 }> = ({
   doc,
@@ -80,12 +80,12 @@ const DocumentacionLite: React.FC<{
       if (f) {
         const name = f.name || "";
         window.alert(
-          `Documento "${label}" se adjuntó correctamente${
+          `Documento "${label}" se adjuntÃ³ correctamente${
             name ? ` (${name})` : ""
           }.`
         );
       } else {
-        window.alert(`No se adjuntó ningún archivo para "${label}".`);
+        window.alert(`No se adjuntÃ³ ningÃºn archivo para "${label}".`);
       }
     };
 
@@ -96,6 +96,12 @@ const DocumentacionLite: React.FC<{
     if (!f) return undefined;
     if (typeof f === "string") return f;
     if (typeof f === "object" && "name" in f) return String(f.name);
+    return undefined;
+  };
+
+  const getExistingUrl = (f: DocFileValue): string | undefined => {
+    if (!f) return undefined;
+    if (typeof f === "object" && "url" in f) return String(f.url || "");
     return undefined;
   };
 
@@ -144,7 +150,7 @@ const DocumentacionLite: React.FC<{
     >
       <div className={classes.cardHeader}>
         <Icon iconName="Document" />
-        <div className={classes.cardTitle}>2 - Documentación</div>
+        <div className={classes.cardTitle}>2 - DocumentaciÃ³n</div>
       </div>
       <Separator />
 
@@ -153,6 +159,7 @@ const DocumentacionLite: React.FC<{
           title="Tarjeta de propiedad *"
           file={fileOut(doc.propFile)}
           existingFileName={getExistingName(doc.propFile)}
+          fileUrl={getExistingUrl(doc.propFile)}
           onFileChange={
             disabled
               ? undefined
@@ -164,15 +171,16 @@ const DocumentacionLite: React.FC<{
 
         {showResBonificacion && (
           <DocCard
-            title="Resolución de bonificación *"
+            title="ResoluciÃ³n de bonificaciÃ³n *"
             file={fileOut(doc.resBonificacionFile)}
             existingFileName={getExistingName(doc.resBonificacionFile)}
+          fileUrl={getExistingUrl(doc.resBonificacionFile)}
             onFileChange={
               disabled
                 ? undefined
                 : handleFileChange(
                     "resBonificacionFile",
-                    "Resolución de bonificación"
+                    "ResoluciÃ³n de bonificaciÃ³n"
                   )
             }
             invalid={invalidBonificacion}
@@ -182,8 +190,8 @@ const DocumentacionLite: React.FC<{
 
         {showFumigacion && (
           <DocCard
-            title="Certificado de fumigación *"
-            dateLabel="Fecha de emisión *"
+            title="Certificado de fumigaciÃ³n *"
+            dateLabel="Fecha de emisiÃ³n *"
             dateValue={doc.fumigacionDate || ""}
             onDateChange={
               disabled
@@ -193,12 +201,13 @@ const DocumentacionLite: React.FC<{
             dateMax={todayStr}
             file={fileOut(doc.fumigacionFile)}
             existingFileName={getExistingName(doc.fumigacionFile)}
+          fileUrl={getExistingUrl(doc.fumigacionFile)}
             onFileChange={
               disabled
                 ? undefined
                 : handleFileChange(
                     "fumigacionFile",
-                    "Certificado de fumigación"
+                    "Certificado de fumigaciÃ³n"
                   )
             }
             invalid={invalidFumigacion}
@@ -207,7 +216,7 @@ const DocumentacionLite: React.FC<{
         )}
 
         <DocCard
-          title="Revisión técnica *"
+          title="RevisiÃ³n tÃ©cnica *"
           dateLabel="Fecha de vencimiento *"
           dateValue={doc.revTecDate || ""}
           onDateChange={
@@ -216,7 +225,7 @@ const DocumentacionLite: React.FC<{
               : (v?: string) => setField("revTecDate")(v || "")
           }
           dateMin={todayStr}
-          textLabel="Año de fabricación *"
+          textLabel="AÃ±o de fabricaciÃ³n *"
           textValue={doc.revTecText || ""}
           onTextChange={
             disabled ? undefined : (v?: string) => setField("revTecText")(v || "")
@@ -225,10 +234,11 @@ const DocumentacionLite: React.FC<{
           textOptions={yearOptions}
           file={fileOut(doc.revTecFile)}
           existingFileName={getExistingName(doc.revTecFile)}
+          fileUrl={getExistingUrl(doc.revTecFile)}
           onFileChange={
             disabled
               ? undefined
-              : handleFileChange("revTecFile", "Revisión técnica")
+              : handleFileChange("revTecFile", "RevisiÃ³n tÃ©cnica")
           }
           invalid={invalidRevisionTecnica}
           showValidation={showValidation}
@@ -237,7 +247,7 @@ const DocumentacionLite: React.FC<{
         {showSanipes && (
           <DocCard
             title="SANIPES"
-            dateLabel="Fecha de resolución"
+            dateLabel="Fecha de resoluciÃ³n"
             dateValue={doc.SanipesDate || ""}
             onDateChange={
               disabled
@@ -245,7 +255,7 @@ const DocumentacionLite: React.FC<{
                 : (v?: string) => setField("SanipesDate")(v || "")
             }
             dateMax={todayStr}
-            textLabel="N° de expediente"
+            textLabel="NÂ° de expediente"
             textValue={doc.SanipesText || ""}
             onTextChange={
               disabled
@@ -254,6 +264,7 @@ const DocumentacionLite: React.FC<{
             }
             file={fileOut(doc.sanipesFile)}
             existingFileName={getExistingName(doc.sanipesFile)}
+          fileUrl={getExistingUrl(doc.sanipesFile)}
             onFileChange={
               disabled ? undefined : handleFileChange("sanipesFile", "SANIPES")
             }
@@ -265,7 +276,7 @@ const DocumentacionLite: React.FC<{
         {showTermoking && (
           <DocCard
             title="Certificado de mantenimiento de termoking *"
-            dateLabel="Fecha de emisión *"
+            dateLabel="Fecha de emisiÃ³n *"
             dateValue={doc.termokingDate || ""}
             onDateChange={
               disabled
@@ -275,6 +286,7 @@ const DocumentacionLite: React.FC<{
             dateMax={todayStr}
             file={fileOut(doc.termokingFile)}
             existingFileName={getExistingName(doc.termokingFile)}
+          fileUrl={getExistingUrl(doc.termokingFile)}
             onFileChange={
               disabled
                 ? undefined
@@ -290,8 +302,8 @@ const DocumentacionLite: React.FC<{
 
         {showLimpieza && (
           <DocCard
-            title="Limpieza y desinfección *"
-            dateLabel="Fecha de emisión *"
+            title="Limpieza y desinfecciÃ³n *"
+            dateLabel="Fecha de emisiÃ³n *"
             dateValue={doc.limpiezaDate || ""}
             onDateChange={
               disabled
@@ -301,10 +313,11 @@ const DocumentacionLite: React.FC<{
             dateMax={todayStr}
             file={fileOut(doc.limpiezaFile)}
             existingFileName={getExistingName(doc.limpiezaFile)}
+          fileUrl={getExistingUrl(doc.limpiezaFile)}
             onFileChange={
               disabled
                 ? undefined
-                : handleFileChange("limpiezaFile", "Limpieza y desinfección")
+                : handleFileChange("limpiezaFile", "Limpieza y desinfecciÃ³n")
             }
             invalid={invalidLimpieza}
             showValidation={showValidation}

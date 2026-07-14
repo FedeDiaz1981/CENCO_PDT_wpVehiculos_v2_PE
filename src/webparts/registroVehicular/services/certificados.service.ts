@@ -288,6 +288,7 @@ export type CertRow = {
   anio?: string | number;
   expediente?: string;
   archivo?: string;
+  archivoUrl?: string;
 };
 
 export async function getCertificadosListado(
@@ -298,12 +299,15 @@ export async function getCertificadosListado(
   const items = (await sp.web.lists
     .getByTitle(listTitle)
     .items.select(
-      `Id,${CERT_FIELDS.Title},${CERT_FIELDS.Certificado},${CERT_FIELDS.Emision},${CERT_FIELDS.Caducidad},${CERT_FIELDS.Anio},${CERT_FIELDS.Resolucion},${CERT_FIELDS.Expediente},AttachmentFiles/FileName`
+      `Id,${CERT_FIELDS.Title},${CERT_FIELDS.Certificado},${CERT_FIELDS.Emision},${CERT_FIELDS.Caducidad},${CERT_FIELDS.Anio},${CERT_FIELDS.Resolucion},${CERT_FIELDS.Expediente},AttachmentFiles/FileName,AttachmentFiles/ServerRelativeUrl`
     )
     .expand("AttachmentFiles")
     .filter(`${CERT_FIELDS.Title} eq '${esc(placa)}'`)
     .orderBy("Id", false)()) as Array<
-    Record<string, unknown> & { Id: number; AttachmentFiles?: Array<{ FileName?: string }> }
+    Record<string, unknown> & {
+      Id: number;
+      AttachmentFiles?: Array<{ FileName?: string; ServerRelativeUrl?: string }>;
+    }
   >;
 
   return items.map((it) => ({
@@ -315,6 +319,7 @@ export async function getCertificadosListado(
     anio: it[CERT_FIELDS.Anio] as string | number | undefined,
     expediente: it[CERT_FIELDS.Expediente] !== undefined ? String(it[CERT_FIELDS.Expediente]) : undefined,
     archivo: it.AttachmentFiles?.[0]?.FileName,
+    archivoUrl: it.AttachmentFiles?.[0]?.ServerRelativeUrl,
   }));
 }
 
