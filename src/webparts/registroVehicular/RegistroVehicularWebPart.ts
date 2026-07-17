@@ -3,13 +3,15 @@ import * as ReactDom from "react-dom";
 import { Version } from "@microsoft/sp-core-library";
 import {
   IPropertyPaneConfiguration,
+  IPropertyPaneDropdownOption,
+  PropertyPaneDropdown,
   PropertyPaneToggle,
   PropertyPaneTextField,
 } from "@microsoft/sp-property-pane";
 import { BaseClientSideWebPart } from "@microsoft/sp-webpart-base";
 
 import RegistroVehicular from "./components/RegistroVehicular";
-import { initSP } from "../../pnp";
+import { SP, initSP } from "../../pnp";
 
 // Props configurables desde el panel del webpart
 export interface IRegistroVehicularWebPartProps {
@@ -32,12 +34,15 @@ export interface IRegistroVehicularWebPartProps {
 }
 
 export default class RegistroVehicularWebPart extends BaseClientSideWebPart<IRegistroVehicularWebPartProps> {
+  private _listOptions: IPropertyPaneDropdownOption[] = [];
+  private _listsLoading = false;
+
   public render(): void {
-    console.log("Render");
+    const vehiculosListTitle = this.properties.vehiculosListTitle || "Vehiculos";
     const componentProps: any = {
       spContext: this.context,
 
-      vehiculosListTitle: "Vehiculos",
+      vehiculosListTitle,
       proveedoresList: "Proveedores",
       proveedoresDisplayField: "Title",
       proveedoresUserField: "Usuarios",
@@ -69,6 +74,42 @@ export default class RegistroVehicularWebPart extends BaseClientSideWebPart<IReg
     return Promise.resolve();
   }
 
+  protected onPropertyPaneConfigurationStart(): void {
+    void this._loadListOptions().then(() => {
+      this.context.propertyPane.refresh();
+    });
+  }
+
+  private async _loadListOptions(): Promise<void> {
+    if (this._listsLoading) return;
+    this._listsLoading = true;
+    try {
+      const options = await SP().web.lists.select("Title,Hidden,BaseTemplate")();
+      const filtered = (options as Array<{
+        Title?: string;
+        Hidden?: boolean;
+        BaseTemplate?: number;
+      }>).filter(
+        (l) =>
+          !l.Hidden &&
+          l.BaseTemplate === 100 &&
+          !!String(l.Title || "").trim()
+      );
+
+      this._listOptions = filtered
+        .map((l) => ({
+          key: String(l.Title || ""),
+          text: String(l.Title || ""),
+        }))
+        .sort((a, b) => a.text.localeCompare(b.text));
+    } catch (err) {
+      console.error("No se pudieron cargar las listas del sitio", err);
+      this._listOptions = [];
+    } finally {
+      this._listsLoading = false;
+    }
+  }
+
   protected onDispose(): void {
     ReactDom.unmountComponentAtNode(this.domElement);
   }
@@ -89,6 +130,13 @@ export default class RegistroVehicularWebPart extends BaseClientSideWebPart<IReg
             {
               groupName: "Roles / Permisos",
               groupFields: [
+                PropertyPaneDropdown("vehiculosListTitle", {
+                  label: "Lista destino de vehículos",
+                  options: this._listOptions,
+                  selectedKey:
+                    this.properties.vehiculosListTitle || "Vehiculos",
+                  disabled: this._listsLoading,
+                }),
                 PropertyPaneToggle("Proveedor", {
                   label: "Proveedor",
                   onText: "Sí",
@@ -136,18 +184,17 @@ export default class RegistroVehicularWebPart extends BaseClientSideWebPart<IReg
               ],
             },
             {
-            groupName: "Comportamiento",
-            groupFields: [
+              groupName: "Comportamiento",
+              groupFields: [
               PropertyPaneToggle("redireccion", {
                 label: "Redirección",
                 onText: "Activada",
                 offText: "Desactivada",
               }),
-
               PropertyPaneTextField("urlRedireccion", {
                 label: "URL de redirección",
                 placeholder: "/sites/tuSitio/SitePages/Home.aspx",
-                disabled: !this.properties.redireccion, // clave
+                disabled: !this.properties.redireccion,
               }),
             ],
           },

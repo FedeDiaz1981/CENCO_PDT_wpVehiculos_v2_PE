@@ -619,6 +619,7 @@ type RegistroVehicularProps = {
 const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
   const {
     spContext,
+    vehiculosListTitle,
     Proveedor,
     Transportista,
     proveedoresList,
@@ -638,6 +639,10 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
   const sp = React.useMemo<SPFI>(
     () => spfi().using(SPFx(spContext)),
     [spContext]
+  );
+  const vehiculosList = React.useMemo<string>(
+    () => vehiculosListTitle || LISTS.Vehiculos,
+    [vehiculosListTitle]
   );
 
   const [accion, setAccion] = React.useState<
@@ -1017,7 +1022,7 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
     async (spLocal: SPFI, placa: string): Promise<void> => {
       await deleteCertificadosPorPlaca(placa);
 
-      const list = spLocal.web.lists.getByTitle(LISTS.Vehiculos);
+      const list = spLocal.web.lists.getByTitle(vehiculosList);
       const found = await list.items
         .select("Id")
         .filter(`${VEH_FIELDS.Title} eq '${placa.replace(/'/g, "''")}'`)
@@ -1028,7 +1033,7 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
         await list.items.getById(id).delete();
       }
     },
-    []
+    [vehiculosList]
   );
 
   const hydrateSelection = React.useCallback(
@@ -1099,7 +1104,9 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
             const tipo = (c.tipo || "").toUpperCase();
 
             if (tipo.includes("TARJETA") && tipo.includes("PROPIEDAD")) {
-              next.propFile = c.archivo ? { name: c.archivo } : undefined;
+              next.propFile = c.archivo
+                ? { name: c.archivo, url: c.archivoUrl }
+                : undefined;
             }
 
             if (
@@ -1109,16 +1116,22 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
               next.revTecDate = toYMD(c.caducidad || undefined);
               next.revTecText =
                 c.anio !== undefined && c.anio !== null ? String(c.anio) : "";
-              next.revTecFile = c.archivo || undefined;
+              next.revTecFile = c.archivo
+                ? { name: c.archivo, url: c.archivoUrl }
+                : undefined;
             }
 
             if (tipo.includes("FUMIG")) {
               next.fumigacionDate = dateOnly(c.emision || undefined);
-              next.fumigacionFile = c.archivo || undefined;
+              next.fumigacionFile = c.archivo
+                ? { name: c.archivo, url: c.archivoUrl }
+                : undefined;
             }
 
             if (tipo.includes("BONIFIC")) {
-              next.resBonificacionFile = c.archivo || undefined;
+              next.resBonificacionFile = c.archivo
+                ? { name: c.archivo, url: c.archivoUrl }
+                : undefined;
             }
 
             if (tipo.includes("SANIPES")) {
@@ -1126,12 +1139,16 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
                 c.resolucion || c.emision || undefined
               );
               next.SanipesText = c.expediente || "";
-              next.sanipesFile = c.archivo || undefined;
+              next.sanipesFile = c.archivo
+                ? { name: c.archivo, url: c.archivoUrl }
+                : undefined;
             }
 
             if (tipo.includes("TERMO")) {
               next.termokingDate = dateOnly(c.emision || undefined);
-              next.termokingFile = c.archivo || undefined;
+              next.termokingFile = c.archivo
+                ? { name: c.archivo, url: c.archivoUrl }
+                : undefined;
             }
 
             if (
@@ -1140,7 +1157,9 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
               tipo.includes("DESINFECCIÓN")
             ) {
               next.limpiezaDate = dateOnly(c.emision || undefined);
-              next.limpiezaFile = c.archivo || undefined;
+              next.limpiezaFile = c.archivo
+                ? { name: c.archivo, url: c.archivoUrl }
+                : undefined;
             }
           }
 
@@ -1161,7 +1180,7 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
       setAccion(nextAction);
       setValidationError(undefined);
     },
-    []
+    [vehiculosList]
   );
 
   const loadVehicleForEdit = React.useCallback(
@@ -1174,7 +1193,7 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
       setCargaPendiente(null);
 
       const item = (await sp.web.lists
-        .getByTitle(LISTS.Vehiculos)
+        .getByTitle(vehiculosList)
         .items.getById(vehiculoId)
         .select(
           "Id",
@@ -1248,7 +1267,7 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
       await hydrateSelection(veh, nextAction);
       return true;
     },
-    [hydrateSelection, sp]
+    [hydrateSelection, sp, vehiculosList]
   );
 
   React.useEffect((): void => {
@@ -1346,7 +1365,7 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
       try {
         setBusy(true);
         const placa = (vehiculo.Placa || "").trim();
-        const vehList = sp.web.lists.getByTitle(LISTS.Vehiculos);
+        const vehList = sp.web.lists.getByTitle(vehiculosList);
 
         if (Borrar) {
           if (vehiculo.Id) {
@@ -1379,7 +1398,7 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
     if (accion === "actualizar" && vehiculo.Id && vehiculo.Id > 0) {
       try {
         const current = (await sp.web.lists
-          .getByTitle(LISTS.Vehiculos)
+          .getByTitle(vehiculosList)
           .items.getById(vehiculo.Id)
           .select("Id", VEH_FIELDS.Final)()) as Record<string, unknown>;
 
@@ -1587,7 +1606,7 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
         item[`${VEH_FIELDS.Proveedor}Id`] = Number(vehiculo.EmpresaId);
       }
 
-      const vehList = sp.web.lists.getByTitle(LISTS.Vehiculos);
+      const vehList = sp.web.lists.getByTitle(vehiculosList);
 
       if (accion === "actualizar" && vehiculo.Id && vehiculo.Id > 0) {
         await vehList.items
@@ -1694,6 +1713,7 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
     notifyModalClose,
     deleteVehiculoYCertificados,
     resetFormulario,
+    vehiculosList,
   ]);
 
   const cargarVehiculos = React.useCallback(
@@ -1702,7 +1722,7 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
 
     try {
       let req = sp.web.lists
-        .getByTitle(LISTS.Vehiculos)
+        .getByTitle(vehiculosList)
         .items.select(
           "Id",
           VEH_FIELDS.Title,
@@ -1799,7 +1819,7 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
       alert("No se pudo cargar la lista de veh?culos.");
     }
     },
-    [sp, Proveedor, Transportista, empresaUsuarioId]
+    [sp, Proveedor, Transportista, empresaUsuarioId, vehiculosList]
   );
 
   const onCancelar = React.useCallback((): void => {
@@ -1867,7 +1887,7 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
       if (accion === "actualizar" && veh.Id && veh.Id > 0) {
         try {
           const current = (await sp.web.lists
-            .getByTitle(LISTS.Vehiculos)
+            .getByTitle(vehiculosList)
             .items.getById(veh.Id)
             .select("Id", VEH_FIELDS.Final)()) as Record<string, unknown>;
 
