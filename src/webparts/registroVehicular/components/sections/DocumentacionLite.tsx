@@ -28,10 +28,7 @@ type DocStateLocal = {
   limpiezaFile?: DocFileValue;
 };
 
-const hasValue = (v: unknown): boolean =>
-  v !== undefined && v !== null && String(v).trim() !== "";
-
-const hasFile = (v: DocFileValue): boolean => {
+const hasValue = (v: DocFileValue): boolean => {
   if (!v) return false;
   if (v instanceof File) return true;
   if (typeof v === "string") return v.trim().length > 0;
@@ -122,26 +119,13 @@ const DocumentacionLite: React.FC<{
   // =========================
   // invalid flags (obligatorios)
   // =========================
-  const invalidTarjeta = !hasFile(doc.propFile);
+  const invalidTarjeta = !hasValue(doc.propFile);
 
-  const invalidBonificacion =
-    showResBonificacion && !hasFile(doc.resBonificacionFile);
-
-  const invalidFumigacion =
-    showFumigacion &&
-    (!hasValue(doc.fumigacionDate) || !hasFile(doc.fumigacionFile));
-
-  const invalidRevisionTecnica =
-    !hasValue(doc.revTecDate) ||
-    !hasValue(doc.revTecText) ||
-    !hasFile(doc.revTecFile);
-
-  const invalidTermoking =
-    showTermoking &&
-    (!hasValue(doc.termokingDate) || !hasFile(doc.termokingFile));
-
-  const invalidLimpieza =
-    showLimpieza && (!hasValue(doc.limpiezaDate) || !hasFile(doc.limpiezaFile));
+  const invalidBonificacion = false;
+  const invalidFumigacion = false;
+  const invalidRevisionTecnica = false;
+  const invalidTermoking = false;
+  const invalidLimpieza = false;
 
   return (
     <div
@@ -171,7 +155,7 @@ const DocumentacionLite: React.FC<{
 
         {showResBonificacion && (
           <DocCard
-            title="ResoluciÃ³n de bonificaciÃ³n *"
+            title="ResoluciÃ³n de bonificaciÃ³n"
             file={fileOut(doc.resBonificacionFile)}
             existingFileName={getExistingName(doc.resBonificacionFile)}
           fileUrl={getExistingUrl(doc.resBonificacionFile)}
@@ -190,8 +174,8 @@ const DocumentacionLite: React.FC<{
 
         {showFumigacion && (
           <DocCard
-            title="Certificado de fumigaciÃ³n *"
-            dateLabel="Fecha de emisiÃ³n *"
+            title="Certificado de fumigaciÃ³n"
+            dateLabel="Fecha de emisiÃ³n"
             dateValue={doc.fumigacionDate || ""}
             onDateChange={
               disabled
@@ -216,8 +200,8 @@ const DocumentacionLite: React.FC<{
         )}
 
         <DocCard
-          title="RevisiÃ³n tÃ©cnica *"
-          dateLabel="Fecha de vencimiento *"
+          title="RevisiÃ³n tÃ©cnica"
+          dateLabel="Fecha de vencimiento"
           dateValue={doc.revTecDate || ""}
           onDateChange={
             disabled
@@ -225,7 +209,7 @@ const DocumentacionLite: React.FC<{
               : (v?: string) => setField("revTecDate")(v || "")
           }
           dateMin={todayStr}
-          textLabel="AÃ±o de fabricaciÃ³n *"
+          textLabel="AÃ±o de fabricaciÃ³n"
           textValue={doc.revTecText || ""}
           onTextChange={
             disabled ? undefined : (v?: string) => setField("revTecText")(v || "")
@@ -275,8 +259,8 @@ const DocumentacionLite: React.FC<{
 
         {showTermoking && (
           <DocCard
-            title="Certificado de mantenimiento de termoking *"
-            dateLabel="Fecha de emisiÃ³n *"
+            title="Certificado de mantenimiento de termoking"
+            dateLabel="Fecha de emisiÃ³n"
             dateValue={doc.termokingDate || ""}
             onDateChange={
               disabled
@@ -302,8 +286,8 @@ const DocumentacionLite: React.FC<{
 
         {showLimpieza && (
           <DocCard
-            title="Limpieza y desinfecciÃ³n *"
-            dateLabel="Fecha de emisiÃ³n *"
+            title="Limpieza y desinfecciÃ³n"
+            dateLabel="Fecha de emisiÃ³n"
             dateValue={doc.limpiezaDate || ""}
             onDateChange={
               disabled

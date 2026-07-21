@@ -3,14 +3,19 @@ import * as React from "react";
 import type { IDropdownOption } from "@fluentui/react";
 import type { FieldMeta } from "../../types";
 import type { IFieldInfo } from "@pnp/sp/fields/types";
+import type { SPFI } from "@pnp/sp";
 import { SP } from "../../../../pnp";
 import "@pnp/sp/webs";
 import "@pnp/sp/lists/web";     
 import "@pnp/sp/fields/list";   
 import "@pnp/sp/items";
 
-async function readFieldsMeta(listTitle: string, internals: readonly string[]) {
-  const fieldsApi = SP().web.lists.getByTitle(listTitle).fields;
+async function readFieldsMeta(
+  listTitle: string,
+  internals: readonly string[],
+  sp = SP()
+) {
+  const fieldsApi = sp.web.lists.getByTitle(listTitle).fields;
   const metas: Record<string, FieldMeta> = {};
   await Promise.all(
     internals.map(async (name) => {
@@ -40,9 +45,10 @@ async function readFieldsMeta(listTitle: string, internals: readonly string[]) {
 
 async function readLookupOptions(
   listGuid: string,
-  lookupField: string
+  lookupField: string,
+  sp = SP()
 ): Promise<IDropdownOption[]> {
-  const list = SP().web.lists.getById(listGuid.replace(/[{}]/g, ""));
+  const list = sp.web.lists.getById(listGuid.replace(/[{}]/g, ""));
   const col = lookupField || "Title";
   const items = await list.items.select(`Id,${col}`).top(2000)();
   return items.map((it: any) => ({ key: it.Id, text: it[col] ?? `#${it.Id}` }));
@@ -59,8 +65,10 @@ type UseVehiculoMetaReturn = {
 
 export function useVehiculoMeta(
   vehList: string,
-  internals: readonly string[]
+  internals: readonly string[],
+  _spArg?: SPFI
 ): UseVehiculoMetaReturn {
+  const sp = _spArg ?? SP();
   const [meta, setMeta] = React.useState<Record<string, FieldMeta>>({});
   const [choices, setChoices] = React.useState<Record<string, IDropdownOption[]>>(
     {}
@@ -77,7 +85,7 @@ export function useVehiculoMeta(
 
     const run = async () => {
       try {
-        const m = await readFieldsMeta(vehList, internals);
+        const m = await readFieldsMeta(vehList, internals, sp);
         if (cancelled) return;
         setMeta(m);
 
@@ -104,7 +112,8 @@ export function useVehiculoMeta(
             try {
               const opts = await readLookupOptions(
                 f.LookupList!,
-                f.LookupField || "Title"
+                f.LookupField || "Title",
+                sp
               );
               return [f.InternalName, opts] as const;
             } catch {

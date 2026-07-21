@@ -20,6 +20,12 @@
   "officeFabricIconFontName": "Page",
   "properties": {
     "vehiculosListTitle": "Vehiculos",
+    "vehiculosViewModificacionId": "",
+    "vehiculosViewVisualizacionId": "",
+    "mostrarIngresar": true,
+    "mostrarModificar": true,
+    "mostrarVisualizar": true,
+    "mostrarBaja": true,
     "proveedoresList": "Proveedores",
     "proveedoresDisplayField": "Title",
     "proveedoresUserField": "Usuarios",

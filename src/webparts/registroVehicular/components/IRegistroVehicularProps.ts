@@ -1,5 +1,7 @@
 export interface IRegistroVehicularProps {
   vehiculosListTitle: string;
+  vehiculosViewModificacionId?: string;
+  vehiculosViewVisualizacionId?: string;
   proveedoresList: string;
   proveedoresDisplayField: string;
   proveedoresUserField: string;

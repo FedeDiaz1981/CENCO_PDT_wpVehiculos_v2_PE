@@ -108,7 +108,7 @@ export async function getVehiculoByPlaca(
 
 export async function upsertVehiculo(v: Vehiculo, listTitle: string = LISTS.Vehiculos): Promise<number> {
   const sp = SP();
-  const { proveedorId } = await getEmpresaForCurrentUser();
+  const { proveedorId } = await getEmpresaForCurrentUser({}, sp);
 
   const payloadBase: any = {
     [VEH_FIELDS.Title]: asString(v.Placa),

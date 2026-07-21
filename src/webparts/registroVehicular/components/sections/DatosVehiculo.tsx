@@ -484,7 +484,7 @@ const DatosVehiculo: React.FC<{
       {/* Temperatura / Tipo temperatura / Tipo de unidad */}
       <div className={classes.grid3}>
         <div className={classes.fieldCell}>
-          <div className={classes.fieldLabel}>Temperatura *</div>
+          <div className={classes.fieldLabel}>Temperatura</div>
           <div style={invalidBoxStyle(invalidTemp)}>
             <Dropdown
               placeholder="Seleccione..."
@@ -498,7 +498,7 @@ const DatosVehiculo: React.FC<{
 
         {showTipoTemperatura && (
           <div className={classes.fieldCell}>
-            <div className={classes.fieldLabel}>Tipo temperatura *</div>
+            <div className={classes.fieldLabel}>Tipo temperatura</div>
             <div style={invalidBoxStyle(invalidTipoTemp)}>
               <Dropdown
                 placeholder="Seleccione..."
@@ -512,7 +512,7 @@ const DatosVehiculo: React.FC<{
         )}
 
         <div className={classes.fieldCell}>
-          <div className={classes.fieldLabel}>Tipo de unidad *</div>
+          <div className={classes.fieldLabel}>Tipo de unidad</div>
           <div style={invalidBoxStyle(invalidTipoUnidad)}>
             <Dropdown
               placeholder="Seleccione..."
@@ -530,7 +530,7 @@ const DatosVehiculo: React.FC<{
           <TextField
             label={
               isRequired("CodigoInterno")
-                ? "Código de unidad *"
+                ? "Código de unidad"
                 : "Código de unidad"
             }
             value={normalizeCodigoVehicular(safeVehiculo.Codigo || "")}
@@ -573,7 +573,7 @@ const DatosVehiculo: React.FC<{
         />
 
         <TextField
-          label="SOAT *"
+          label="SOAT"
           value={safeVehiculo.SOAT || ""}
           onChange={setText("SOAT")}
           disabled={disabled}
@@ -619,7 +619,7 @@ const DatosVehiculo: React.FC<{
       {/* Capacidad */}
       <div className={classes.grid3}>
         <div className={classes.fieldCell}>
-          <div className={classes.fieldLabel}>Capacidad *</div>
+          <div className={classes.fieldLabel}>Capacidad</div>
           <div style={invalidBoxStyle(invalidCapacidad)}>
             <Dropdown
               placeholder="Seleccione..."
@@ -634,7 +634,7 @@ const DatosVehiculo: React.FC<{
         {isCapacidadOtro && (
           <div className={classes.fieldCell}>
             <TextField
-              label="Especifique capacidad *"
+              label="Especifique capacidad"
               value={safeVehiculo.Otros || ""}
               onChange={setText("Otros")}
               disabled={disabled}
@@ -653,7 +653,7 @@ const DatosVehiculo: React.FC<{
       {/* Rampa */}
       <div className={classes.grid3}>
         <div className={classes.fieldCell}>
-          <div className={classes.fieldLabel}>Rampa *</div>
+          <div className={classes.fieldLabel}>Rampa</div>
           <div style={invalidBoxStyle(invalidRampa)}>
             <Toggle
               checked={!!safeVehiculo.Rampa}
@@ -671,7 +671,7 @@ const DatosVehiculo: React.FC<{
         {safeVehiculo.Rampa && (
           <>
             <TextField
-              label="Largo rampa *"
+              label="Largo rampa"
               value={safeVehiculo.LargoRampa || ""}
               onChange={setText("LargoRampa")}
               disabled={disabled}
@@ -682,7 +682,7 @@ const DatosVehiculo: React.FC<{
               }
             />
             <TextField
-              label="Ancho rampa *"
+              label="Ancho rampa"
               value={safeVehiculo.AnchoRampa || ""}
               onChange={setText("AnchoRampa")}
               disabled={disabled}
@@ -699,9 +699,7 @@ const DatosVehiculo: React.FC<{
       {/* Bonificaci?n */}
       <div className={classes.grid3}>
         <div className={classes.fieldCell}>
-          <div className={classes.fieldLabel}>
-            {isRequired("Bonificacion") ? "Bonificación *" : "Bonificación"}
-          </div>
+          <div className={classes.fieldLabel}>Bonificación</div>
           <div style={invalidBoxStyle(invalidBonificacion)}>
             <Toggle
               checked={!!safeVehiculo.Bonificacion}
@@ -718,11 +716,7 @@ const DatosVehiculo: React.FC<{
 
         {safeVehiculo.Bonificacion && (
           <TextField
-            label={
-              isRequired("NroResolucion")
-                ? "N° de resolución *"
-                : "N° de resolución"
-            }
+            label="N° de resolución"
             value={safeVehiculo.NroResolucion || ""}
             onChange={setText("NroResolucion")}
             disabled={disabled || bonificacionBloqueada}
@@ -807,7 +801,7 @@ const DatosVehiculo: React.FC<{
               className={classes.fieldLabel}
               style={{ display: "flex", alignItems: "center", gap: 6 }}
             >
-              <span>Altura de piso al furgón *</span>
+              <span>Altura de piso al furgón</span>
               <IconButton
                 iconProps={{ iconName: "Info" }}
                 title="Ver referencia"
@@ -834,7 +828,7 @@ const DatosVehiculo: React.FC<{
       {/* Pesos */}
       <div className={classes.grid3}>
         <TextField
-          label="Peso carga útil *"
+          label="Peso carga útil"
           value={safeVehiculo.PesoCargaUtil || ""}
           type={isNumber("pesocargautil") ? "number" : "text"}
           onChange={setText("PesoCargaUtil")}
@@ -847,7 +841,7 @@ const DatosVehiculo: React.FC<{
         />
 
         <TextField
-          label="Peso bruto *"
+          label="Peso bruto"
           value={safeVehiculo.PesoNeto || ""}
           type="text"
           onChange={setText("PesoNeto")}

@@ -1,3 +1,4 @@
+import type { SPFI } from "@pnp/sp";
 import { SP } from "../../../pnp";
 export { SP }; // reexport por comodidad
 
@@ -7,11 +8,15 @@ export const asBool   = (v: any) => (v ?? v === false ? !!v : undefined);
 
 // cache genérico por lista
 const _allowedKeysCache = new Map<string, Promise<Set<string>>>();
-export async function getAllowedKeys(listTitle: string): Promise<Set<string>> {
+export async function getAllowedKeys(
+  listTitle: string,
+  spArg?: SPFI
+): Promise<Set<string>> {
   const key = (listTitle || "").toLowerCase();
   if (_allowedKeysCache.has(key)) return _allowedKeysCache.get(key)!;
   const p = (async () => {
-    const fields = await SP().web.lists.getByTitle(listTitle)
+    const sp = spArg ?? SP();
+    const fields = await sp.web.lists.getByTitle(listTitle)
       .fields.select("InternalName,TypeAsString,Hidden,ReadOnlyField")();
     const allowed = new Set<string>();
     for (const f of fields) {

@@ -1,5 +1,6 @@
 // src/webparts/registroVehicular/components/hooks/useEmpresaAuto.ts
 import * as React from "react";
+import type { SPFI } from "@pnp/sp";
 import { SP } from "../../../../pnp";
 import "@pnp/sp/site-users/web";
 
@@ -8,7 +9,8 @@ type EmpresaRef = { nombre?: string; id?: number };
 export function useEmpresaAuto(
   listName: string = "Proveedores",
   displayCol: string = "Title",
-  userCol: string = "Usuarios"
+  userCol: string = "Usuarios",
+  spArg?: SPFI
 ): EmpresaRef {
   const [empresa, setEmpresa] = React.useState<EmpresaRef>({});
 
@@ -20,15 +22,16 @@ export function useEmpresaAuto(
         const effectiveList  = listName || "Proveedores";
         const effectiveDisp  = displayCol || "Title";
         const effectiveUsers = userCol   || "Usuarios";
+        const sp = spArg ?? SP();
 
-        const me = await SP().web.currentUser();
+        const me = await sp.web.currentUser();
         const meId = me?.Id as number;
         const meEmail = (me?.Email || "").toLowerCase();
         const emailSafe = meEmail.replace(/'/g, "''");
 
         const byPersona = async () => {
           try {
-            const r: any[] = await SP()
+            const r: any[] = await sp
               .web.lists.getByTitle(effectiveList)
               .items.select(`Id,${effectiveDisp},${effectiveUsers}/Id,${effectiveUsers}/EMail,Created`)
               .expand(effectiveUsers)
@@ -41,7 +44,7 @@ export function useEmpresaAuto(
 
         const byTextExact = async () => {
           try {
-            const r: any[] = await SP()
+            const r: any[] = await sp
               .web.lists.getByTitle(effectiveList)
               .items.select(`Id,${effectiveDisp},${effectiveUsers},Created`)
               .filter(`${effectiveUsers} eq '${emailSafe}'`)
@@ -53,7 +56,7 @@ export function useEmpresaAuto(
 
         const byTextContains = async () => {
           try {
-            const r: any[] = await SP()
+            const r: any[] = await sp
               .web.lists.getByTitle(effectiveList)
               .items.select(`Id,${effectiveDisp},Created`)
               .filter(`substringof('${emailSafe}', ${effectiveUsers})`)

@@ -4,18 +4,26 @@ import { Version } from "@microsoft/sp-core-library";
 import {
   IPropertyPaneConfiguration,
   IPropertyPaneDropdownOption,
+  PropertyPaneHorizontalRule,
   PropertyPaneDropdown,
+  PropertyPaneLabel,
   PropertyPaneToggle,
   PropertyPaneTextField,
 } from "@microsoft/sp-property-pane";
 import { BaseClientSideWebPart } from "@microsoft/sp-webpart-base";
 
 import RegistroVehicular from "./components/RegistroVehicular";
-import { SP, initSP } from "../../pnp";
+import { getSP, initSP } from "../../pnp";
 
 // Props configurables desde el panel del webpart
 export interface IRegistroVehicularWebPartProps {
   vehiculosListTitle: string;
+  vehiculosViewModificacionId: string;
+  vehiculosViewVisualizacionId: string;
+  mostrarIngresar: boolean;
+  mostrarModificar: boolean;
+  mostrarVisualizar: boolean;
+  mostrarBaja: boolean;
   proveedoresList: string;
   proveedoresDisplayField: string;
   proveedoresUserField: string;
@@ -34,8 +42,12 @@ export interface IRegistroVehicularWebPartProps {
 }
 
 export default class RegistroVehicularWebPart extends BaseClientSideWebPart<IRegistroVehicularWebPartProps> {
-  private _listOptions: IPropertyPaneDropdownOption[] = [];
-  private _listsLoading = false;
+  private _viewOptions: IPropertyPaneDropdownOption[] = [];
+  private _viewsLoading = false;
+  private _viewsLoadedForList = "";
+  private _diagSiteUrl = "";
+  private _diagViewSummary = "Sin diagnóstico todavía";
+  private _diagViewError = "Sin errores";
 
   public render(): void {
     const vehiculosListTitle = this.properties.vehiculosListTitle || "Vehiculos";
@@ -43,6 +55,14 @@ export default class RegistroVehicularWebPart extends BaseClientSideWebPart<IReg
       spContext: this.context,
 
       vehiculosListTitle,
+      vehiculosViewModificacionId:
+        this.properties.vehiculosViewModificacionId || "",
+      vehiculosViewVisualizacionId:
+        this.properties.vehiculosViewVisualizacionId || "",
+      mostrarIngresar: this.properties.mostrarIngresar ?? true,
+      mostrarModificar: this.properties.mostrarModificar ?? true,
+      mostrarVisualizar: this.properties.mostrarVisualizar ?? true,
+      mostrarBaja: this.properties.mostrarBaja ?? true,
       proveedoresList: "Proveedores",
       proveedoresDisplayField: "Title",
       proveedoresUserField: "Usuarios",
@@ -75,38 +95,105 @@ export default class RegistroVehicularWebPart extends BaseClientSideWebPart<IReg
   }
 
   protected onPropertyPaneConfigurationStart(): void {
-    void this._loadListOptions().then(() => {
-      this.context.propertyPane.refresh();
-    });
+    this._loadViewOptions(this.properties.vehiculosListTitle)
+      .then(() => {
+        this.context.propertyPane.refresh();
+      })
+      .catch((err) => console.error(err));
   }
 
-  private async _loadListOptions(): Promise<void> {
-    if (this._listsLoading) return;
-    this._listsLoading = true;
+  protected onPropertyPaneFieldChanged(
+    propertyPath: string,
+    oldValue: unknown,
+    newValue: unknown
+  ): void {
+    super.onPropertyPaneFieldChanged(propertyPath, oldValue, newValue);
+
+    if (propertyPath === "vehiculosListTitle" && oldValue !== newValue) {
+      this._loadViewOptions(String(newValue || ""))
+        .then(() => {
+          this.context.propertyPane.refresh();
+        })
+        .catch((err) => console.error(err));
+    }
+  }
+
+  private async _loadViewOptions(listTitle: string | undefined): Promise<void> {
+    const normalizedListTitle = String(listTitle || "").trim();
+    if (!normalizedListTitle) {
+      this._viewOptions = [];
+      this._viewsLoadedForList = "";
+      return;
+    }
+
+    if (this._viewsLoading && this._viewsLoadedForList === normalizedListTitle) {
+      return;
+    }
+
+    this._viewsLoading = true;
     try {
-      const options = await SP().web.lists.select("Title,Hidden,BaseTemplate")();
-      const filtered = (options as Array<{
+      const sp = getSP(this.context);
+      this._diagSiteUrl = this.context.pageContext.web.absoluteUrl || "";
+      const list = sp.web.lists.getByTitle(normalizedListTitle);
+      const views = (await list.views.select(
+        "Id",
+        "Title",
+        "DefaultView",
+        "Hidden"
+      )()) as Array<{
+        Id?: string;
         Title?: string;
+        DefaultView?: boolean;
         Hidden?: boolean;
-        BaseTemplate?: number;
-      }>).filter(
-        (l) =>
-          !l.Hidden &&
-          l.BaseTemplate === 100 &&
-          !!String(l.Title || "").trim()
+      }>;
+
+      const visible = views.filter(
+        (v) => !v.Hidden && !!String(v.Title || "").trim() && !!String(v.Id || "").trim()
       );
 
-      this._listOptions = filtered
+      this._viewOptions = visible
         .map((l) => ({
-          key: String(l.Title || ""),
+          key: String(l.Id || ""),
           text: String(l.Title || ""),
         }))
         .sort((a, b) => a.text.localeCompare(b.text));
+      this._viewsLoadedForList = normalizedListTitle;
+
+      const defaultView =
+        visible.find((v) => v.DefaultView) || visible[0] || undefined;
+      const defaultViewId = defaultView ? String(defaultView.Id || "") : "";
+
+      if (
+        defaultViewId &&
+        !visible.some(
+          (v) => String(v.Id || "") === this.properties.vehiculosViewModificacionId
+        )
+      ) {
+        this.properties.vehiculosViewModificacionId = defaultViewId;
+      }
+
+      if (
+        defaultViewId &&
+        !visible.some(
+          (v) => String(v.Id || "") === this.properties.vehiculosViewVisualizacionId
+        )
+      ) {
+        this.properties.vehiculosViewVisualizacionId = defaultViewId;
+      }
+
+      this._diagViewSummary = `Sitio: ${this._diagSiteUrl || "(sin URL)"} | Lista: ${normalizedListTitle} | Vistas visibles: ${visible.length}`;
+      this._diagViewError = "Sin errores";
     } catch (err) {
-      console.error("No se pudieron cargar las listas del sitio", err);
-      this._listOptions = [];
+      const message =
+        err instanceof Error ? err.message : typeof err === "string" ? err : JSON.stringify(err);
+      console.error("No se pudieron cargar las vistas de la lista", err);
+      this._viewOptions = [];
+      this._viewsLoadedForList = normalizedListTitle;
+      this._diagSiteUrl = this.context.pageContext.web.absoluteUrl || "";
+      this._diagViewSummary = `Sitio: ${this._diagSiteUrl || "(sin URL)"} | Lista: ${normalizedListTitle} | Vistas visibles: 0`;
+      this._diagViewError = message || "Error desconocido";
     } finally {
-      this._listsLoading = false;
+      this._viewsLoading = false;
     }
   }
 
@@ -130,12 +217,33 @@ export default class RegistroVehicularWebPart extends BaseClientSideWebPart<IReg
             {
               groupName: "Roles / Permisos",
               groupFields: [
-                PropertyPaneDropdown("vehiculosListTitle", {
+                PropertyPaneTextField("vehiculosListTitle", {
                   label: "Lista destino de vehículos",
-                  options: this._listOptions,
-                  selectedKey:
-                    this.properties.vehiculosListTitle || "Vehiculos",
-                  disabled: this._listsLoading,
+                  placeholder: "Vehiculos",
+                  description:
+                    "Escribe el nombre exacto de la lista del sitio donde se guardan los vehículos.",
+                }),
+                PropertyPaneDropdown("vehiculosViewModificacionId", {
+                  label: "Vista para modificación",
+                  options: this._viewOptions,
+                  selectedKey: this.properties.vehiculosViewModificacionId || "",
+                  disabled: this._viewsLoading || !this._viewOptions.length,
+                }),
+                PropertyPaneDropdown("vehiculosViewVisualizacionId", {
+                  label: "Vista para visualización",
+                  options: this._viewOptions,
+                  selectedKey: this.properties.vehiculosViewVisualizacionId || "",
+                  disabled: this._viewsLoading || !this._viewOptions.length,
+                }),
+                PropertyPaneHorizontalRule(),
+                PropertyPaneLabel("_diagSiteUrl", {
+                  text: `Contexto: ${this._diagSiteUrl || "(sin URL)"}`,
+                }),
+                PropertyPaneLabel("_diagViewSummary", {
+                  text: this._diagViewSummary,
+                }),
+                PropertyPaneLabel("_diagViewError", {
+                  text: `Error: ${this._diagViewError || "Sin errores"}`,
                 }),
                 PropertyPaneToggle("Proveedor", {
                   label: "Proveedor",
@@ -148,6 +256,35 @@ export default class RegistroVehicularWebPart extends BaseClientSideWebPart<IReg
                   onText: "Sí",
                   offText: "No",
                   checked: this.properties.Transportista,
+                }),
+              ],
+            },
+            {
+              groupName: "Acciones del formulario",
+              groupFields: [
+                PropertyPaneToggle("mostrarIngresar", {
+                  label: "Mostrar ingresar",
+                  onText: "Sí",
+                  offText: "No",
+                  checked: this.properties.mostrarIngresar ?? true,
+                }),
+                PropertyPaneToggle("mostrarModificar", {
+                  label: "Mostrar modificar",
+                  onText: "Sí",
+                  offText: "No",
+                  checked: this.properties.mostrarModificar ?? true,
+                }),
+                PropertyPaneToggle("mostrarVisualizar", {
+                  label: "Mostrar visualizar",
+                  onText: "Sí",
+                  offText: "No",
+                  checked: this.properties.mostrarVisualizar ?? true,
+                }),
+                PropertyPaneToggle("mostrarBaja", {
+                  label: "Mostrar dar de baja",
+                  onText: "Sí",
+                  offText: "No",
+                  checked: this.properties.mostrarBaja ?? true,
                 }),
               ],
             },

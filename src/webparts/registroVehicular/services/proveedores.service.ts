@@ -1,3 +1,4 @@
+import type { SPFI } from "@pnp/sp";
 import { SP } from "../../../pnp";
 import "@pnp/sp/webs";
 import "@pnp/sp/lists";
@@ -23,7 +24,8 @@ const safe = (s: string) => (s || "").replace(/'/g, "''");
  * Si true/undefined -> busca el proveedor asociado al usuario actual
  */
 export async function getEmpresaForCurrentUser(
-  opts: GetEmpresaOptions = {}
+  opts: GetEmpresaOptions = {},
+  spArg?: SPFI
 ): Promise<EmpresaLookupResult> {
   const {
     Proveedor = true,
@@ -36,12 +38,13 @@ export async function getEmpresaForCurrentUser(
   if (!Proveedor) return {};
 
   try {
-    const me = await SP().web.currentUser();
+    const sp = spArg ?? SP();
+    const me = await sp.web.currentUser();
     const meId = me?.Id;
     const emailSafe = safe((me?.Email || "").toLowerCase());
     console.log("Tomando usuarios");
 
-    const r1: any[] = await SP()
+    const r1: any[] = await sp
       .web.lists.getByTitle(listName)
       .items.select(`Id,${displayCol},${userCol}/Id,Created`)
       .expand(userCol)
@@ -51,7 +54,7 @@ export async function getEmpresaForCurrentUser(
 
     if (r1?.[0]) return { empresaTitle: r1[0][displayCol], proveedorId: r1[0].Id };
 
-    const r2: any[] = await SP()
+    const r2: any[] = await sp
       .web.lists.getByTitle(listName)
       .items.select(`Id,${displayCol},${userCol},Created`)
       .filter(`${userCol} eq '${emailSafe}'`)
@@ -60,7 +63,7 @@ export async function getEmpresaForCurrentUser(
 
     if (r2?.[0]) return { empresaTitle: r2[0][displayCol], proveedorId: r2[0].Id };
 
-    const r3: any[] = await SP()
+    const r3: any[] = await sp
       .web.lists.getByTitle(listName)
       .items.select(`Id,${displayCol},Created`)
       .filter(`substringof('${emailSafe}', ${userCol})`)
