@@ -123,6 +123,11 @@ const vehiculoInicial: IVehiculoItemFull = {
   EmpresaId: undefined,
 };
 
+const createEmptyVehiculo = (defaultCorreos = ""): IVehiculoItemFull => ({
+  ...vehiculoInicial,
+  CorreosNotificacion: defaultCorreos,
+});
+
 const docinicial: DocStateLocal = {
   propFile: undefined,
   resBonificacionFile: undefined,
@@ -730,7 +735,10 @@ type RegistroVehicularProps = {
   spContext: WebPartContext;
   vehiculosListTitle: string;
   vehiculosViewModificacionId?: string;
+  vehiculosViewBajaId?: string;
   vehiculosViewVisualizacionId?: string;
+  certificadosListTitle?: string;
+  correosNotificacionDefault?: string;
   mostrarIngresar?: boolean;
   mostrarModificar?: boolean;
   mostrarVisualizar?: boolean;
@@ -754,7 +762,10 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
     spContext,
     vehiculosListTitle,
     vehiculosViewModificacionId,
+    vehiculosViewBajaId,
     vehiculosViewVisualizacionId,
+    certificadosListTitle,
+    correosNotificacionDefault,
     mostrarIngresar = true,
     mostrarModificar = true,
     mostrarVisualizar = true,
@@ -783,6 +794,14 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
     () => vehiculosListTitle || LISTS.Vehiculos,
     [vehiculosListTitle]
   );
+  const certificadosList = React.useMemo<string>(
+    () => certificadosListTitle || LISTS.Certificados,
+    [certificadosListTitle]
+  );
+  const defaultCorreosNotificacion = React.useMemo<string>(
+    () => cleanHtmlText(correosNotificacionDefault || ""),
+    [correosNotificacionDefault]
+  );
 
   const [accion, setAccion] = React.useState<
     "crear" | "actualizar" | "baja" | "visualizar"
@@ -794,8 +813,15 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
     () =>
       modo === "VISUALIZAR"
         ? vehiculosViewVisualizacionId || ""
+        : modo === "BAJA"
+        ? vehiculosViewBajaId || ""
         : vehiculosViewModificacionId || "",
-    [modo, vehiculosViewModificacionId, vehiculosViewVisualizacionId]
+    [
+      modo,
+      vehiculosViewBajaId,
+      vehiculosViewModificacionId,
+      vehiculosViewVisualizacionId,
+    ]
   );
   const showActionButtons = React.useMemo(
     () =>
@@ -804,8 +830,9 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
   );
   const [vehiculos, _setVehiculos] = React.useState<IVehiculoItemFull[]>([]);
   const [busy, setBusy] = React.useState<boolean>(false);
-  const [vehiculo, setVehiculo] =
-    React.useState<IVehiculoItemFull>(vehiculoInicial);
+  const [vehiculo, setVehiculo] = React.useState<IVehiculoItemFull>(() =>
+    createEmptyVehiculo(defaultCorreosNotificacion)
+  );
   const showCodigoVehicular = React.useMemo(
     () => isCamionTipoUnidad(vehiculo.TipoUnidad),
     [vehiculo.TipoUnidad]
@@ -868,6 +895,7 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
   } | null>(null);
   const topRef = React.useRef<HTMLDivElement | null>(null);
   const selectionLockedRef = React.useRef<boolean>(false);
+  const loadVehiculosSeqRef = React.useRef(0);
   const errorModalStyles = React.useMemo(
     () => ({
       container: {
@@ -1021,7 +1049,7 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
       }
 
       let baseVeh: IVehiculoItemFull = {
-        ...vehiculoInicial,
+        ...createEmptyVehiculo(defaultCorreosNotificacion),
         Id: 0,
         EmpresaId: undefined,
         Empresa: "",
@@ -1049,7 +1077,6 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
         TipoTemperatura: "",
         TipoUnidad: "",
         Activo: true,
-        CorreosNotificacion: "",
       };
 
       if (empresaBloqueada && empresaUsuarioId) {
@@ -1072,8 +1099,24 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
         });
       }
     },
-    [empresaBloqueada, empresaUsuarioId]
+    [defaultCorreosNotificacion, empresaBloqueada, empresaUsuarioId]
   );
+
+  React.useEffect(() => {
+    if (accion !== "crear") return;
+    if (vehiculo.Id && vehiculo.Id > 0) return;
+
+    const current = cleanHtmlText(vehiculo.CorreosNotificacion);
+    if (current) return;
+
+    if (!defaultCorreosNotificacion) return;
+
+    setVehiculo((prev) =>
+      prev.Id > 0 || cleanHtmlText(prev.CorreosNotificacion)
+        ? prev
+        : { ...prev, CorreosNotificacion: defaultCorreosNotificacion }
+    );
+  }, [accion, defaultCorreosNotificacion, vehiculo.Id, vehiculo.CorreosNotificacion]);
 
   const onIngresarClick = (): void => {
     resetFormulario("crear", { scrollTop: true });
@@ -1082,7 +1125,10 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
   const onVisualizarClick = (): void => {
     resetFormulario("visualizar", { scrollTop: true });
     setModo("VISUALIZAR");
-    cargarVehiculos({ includeFinalizados: true }).catch((e) =>
+    cargarVehiculos({
+      includeFinalizados: true,
+      viewId: vehiculosViewVisualizacionId || "",
+    }).catch((e) =>
       console.error(e)
     );
   };
@@ -1159,7 +1205,7 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
 
   const deleteVehiculoYCertificados = React.useCallback(
     async (spLocal: SPFI, placa: string): Promise<void> => {
-      await deleteCertificadosPorPlaca(placa);
+      await deleteCertificadosPorPlaca(placa, certificadosList);
 
       const list = spLocal.web.lists.getByTitle(vehiculosList);
       const found = await list.items
@@ -1172,7 +1218,7 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
         await list.items.getById(id).delete();
       }
     },
-    [vehiculosList]
+    [certificadosList, vehiculosList]
   );
 
   const hydrateSelection = React.useCallback(
@@ -1216,7 +1262,10 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
       });
 
       try {
-        const certRows = await getCertificadosListado(veh.Title || "");
+        const certRows = await getCertificadosListado(
+          veh.Title || "",
+          certificadosList
+        );
 
         setDoc(() => {
           const next: DocStateLocal = {
@@ -1425,20 +1474,7 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
     });
   }, [loadVehicleForEdit]);
 
-  const baseLockedFields = [
-    "Empresa",
-    "EmpresaId",
-    "Placa",
-    "Title",
-    "Marca",
-    "Modelo",
-    "Codigo",
-    "CodigoInterno",
-  ];
-  const lockedFields =
-    accion === "actualizar" || accion === "visualizar" || !!Transportista
-      ? baseLockedFields
-      : [];
+  const lockedFields: string[] = [];
 
   function dateOnly(v?: string | undefined): string {
     if (!v) return "";
@@ -1771,29 +1807,32 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
         setVehiculo((prev) => ({ ...prev, Id: savedVehiculoId, Placa: placa, Title: placa }));
       }
 
-      if (!Transportista) {
-        try {
-          await saveCertificadosDeVehiculoSimple({ placa, doc, docsFlags });
-        } catch (errDocs) {
-          console.error("Error al guardar certificados", errDocs);
-          if (isCreateFlow && savedVehiculoId > 0) {
-            setCargaPendiente({ vehiculoId: savedVehiculoId, placa });
-            setModo("MODIFICAR");
-            setAccion("actualizar");
-            setErrorModal({
-              title: "Carga parcial",
-              message:
-                "El vehículo se guardó, pero hubo un error al guardar la documentación. Podés completar lo faltante o cancelar la carga para revertir todo.",
-            });
-          } else {
-            setErrorModal({
-              title: "Guardado parcial",
-              message:
-                "El vehículo se guardó, pero hubo un error al guardar la documentación. Intentá nuevamente.",
-            });
-          }
-          return;
+      try {
+        await saveCertificadosDeVehiculoSimple({
+          placa,
+          doc,
+          docsFlags,
+          listTitle: certificadosList,
+        });
+      } catch (errDocs) {
+        console.error("Error al guardar certificados", errDocs);
+        if (isCreateFlow && savedVehiculoId > 0) {
+          setCargaPendiente({ vehiculoId: savedVehiculoId, placa });
+          setModo("MODIFICAR");
+          setAccion("actualizar");
+          setErrorModal({
+            title: "Carga parcial",
+            message:
+              "El vehículo se guardó, pero hubo un error al guardar la documentación. Podés completar lo faltante o cancelar la carga para revertir todo.",
+          });
+        } else {
+          setErrorModal({
+            title: "Guardado parcial",
+            message:
+              "El vehículo se guardó, pero hubo un error al guardar la documentación. Intentá nuevamente.",
+          });
         }
+        return;
       }
 
       setCargaPendiente(null);
@@ -1856,19 +1895,31 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
   ]);
 
   const cargarVehiculos = React.useCallback(
-    async (opts?: { includeFinalizados?: boolean }): Promise<void> => {
+    async (opts?: {
+      includeFinalizados?: boolean;
+      viewId?: string;
+    }): Promise<void> => {
       const includeFinalizados = opts?.includeFinalizados ?? false;
+      const explicitViewId = String(opts?.viewId || "").trim();
+      const loadSeq = ++loadVehiculosSeqRef.current;
+
+      _setVehiculos([]);
 
       try {
         const list = sp.web.lists.getByTitle(vehiculosList);
 
         const applyGridFilters = (
-          items: IVehiculoItemFull[]
+          items: IVehiculoItemFull[],
+          opts?: { ignoreEmpresaFilter?: boolean }
         ): IVehiculoItemFull[] => {
           return items.filter((item) => {
             if (!includeFinalizados && item.Final) return false;
             if (!item.Activo) return false;
-            if ((Proveedor || !!Transportista) && empresaUsuarioId) {
+            if (
+              !opts?.ignoreEmpresaFilter &&
+              (Proveedor || !!Transportista) &&
+              empresaUsuarioId
+            ) {
               return Number(item.EmpresaId || 0) === Number(empresaUsuarioId);
             }
             return true;
@@ -1890,7 +1941,67 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
           });
 
           const rows = Array.isArray(stream.Row) ? stream.Row : [];
-          return rows.map((row) => mapVehiculoRow(row as Record<string, unknown>));
+          const ids = rows
+            .map((row) => {
+              const r = row as Record<string, unknown>;
+              const idCandidates = [
+                r.Id,
+                r.ID,
+                r.id,
+                r["ID"],
+                r["Id"],
+                r["id"],
+              ];
+              const parsed = idCandidates
+                .map((v) => Number(v))
+                .find((n) => Number.isFinite(n) && n > 0);
+              return parsed || 0;
+            })
+            .filter((id) => id > 0);
+
+          if (!ids.length) return [];
+
+          const fullItems = await Promise.all(
+            ids.map(async (id) => {
+              const item = (await list.items
+                .getById(id)
+                .select(
+                  "Id",
+                  VEH_FIELDS.Title,
+                  VEH_FIELDS.SOAT,
+                  VEH_FIELDS.Codigo,
+                  VEH_FIELDS.Marca,
+                  VEH_FIELDS.Modelo,
+                  VEH_FIELDS.Capacidad,
+                  VEH_FIELDS.CapacidadOtros,
+                  VEH_FIELDS.Rampa,
+                  VEH_FIELDS.LargoRampa,
+                  VEH_FIELDS.AnchoRampa,
+                  VEH_FIELDS.Bonificacion,
+                  VEH_FIELDS.RielesLogisticos,
+                  VEH_FIELDS.Propiedad,
+                  VEH_FIELDS.Resolucion,
+                  VEH_FIELDS.MedidasInternas,
+                  VEH_FIELDS.MedidasExternas,
+                  VEH_FIELDS.AlturaPiso,
+                  VEH_FIELDS.PesoCargaUtil,
+                  VEH_FIELDS.PesoBruto,
+                  VEH_FIELDS.Temperatura,
+                  VEH_FIELDS.TipoTemperatura,
+                  VEH_FIELDS.TipoUnidad,
+                  VEH_FIELDS.Activo,
+                  VEH_FIELDS.Final,
+                  VEH_FIELDS.Correos,
+                  `${VEH_FIELDS.Proveedor}/Id`,
+                  `${VEH_FIELDS.Proveedor}/Title`
+                )
+                .expand(VEH_FIELDS.Proveedor)()) as Record<string, unknown>;
+
+              return mapVehiculoRow(item);
+            })
+          );
+
+          return fullItems;
         };
 
         const loadClassic = async (): Promise<IVehiculoItemFull[]> => {
@@ -1941,11 +2052,11 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
         };
 
         let mapped: IVehiculoItemFull[] = [];
-        let loadedFromView = false;
-        if (selectedGridViewId) {
+        const effectiveViewId = explicitViewId || selectedGridViewId;
+
+        if (effectiveViewId) {
           try {
-            mapped = await loadFromView(selectedGridViewId);
-            loadedFromView = true;
+            mapped = await loadFromView(effectiveViewId);
           } catch (viewErr) {
             console.warn(
               "No se pudo leer la vista seleccionada, se usa la lectura clásica de la lista",
@@ -1957,26 +2068,17 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
           mapped = await loadClassic();
         }
 
-        let filtered = applyGridFilters(mapped);
+        let filtered = applyGridFilters(mapped, {
+          ignoreEmpresaFilter: !!effectiveViewId,
+        });
 
-        if (loadedFromView && filtered.length === 0) {
-          try {
-            const classicRows = await loadClassic();
-            const classicFiltered = applyGridFilters(classicRows);
-
-            if (classicFiltered.length > 0) {
-              console.warn(
-                "La vista seleccionada no devolvió filas útiles; se usó la carga clásica como respaldo."
-              );
-              filtered = classicFiltered;
-            }
-          } catch (classicErr) {
-            console.warn("Fallback clásico falló", classicErr);
-          }
+        if (loadSeq === loadVehiculosSeqRef.current) {
+          _setVehiculos(filtered);
         }
-
-        _setVehiculos(filtered);
       } catch (err) {
+        if (loadSeq === loadVehiculosSeqRef.current) {
+          _setVehiculos([]);
+        }
         console.error("Error leyendo lista Vehiculos", err);
         alert("No se pudo cargar la lista de veh?culos.");
       }
@@ -2112,7 +2214,10 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
       });
 
       try {
-        const certRows = await getCertificadosListado(veh.Title || "");
+        const certRows = await getCertificadosListado(
+          veh.Title || "",
+          certificadosList
+        );
 
         setDoc(() => {
           const next: DocStateLocal = {
@@ -2218,7 +2323,7 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
 
       setValidationError(undefined);
     },
-    [accion, cargarVehiculos, sp]
+    [accion, cargarVehiculos, certificadosList, sp]
   );
 
   const hasValueUI = (v: DocFileValue): boolean => {
@@ -2382,9 +2487,10 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
                     onClick={(): void => {
                       setAccion("actualizar");
                       setModo("MODIFICAR");
-                      cargarVehiculos({ includeFinalizados: false }).catch((e) =>
-                        console.error(e)
-                      );
+                      cargarVehiculos({
+                        includeFinalizados: false,
+                        viewId: vehiculosViewModificacionId || "",
+                      }).catch((e) => console.error(e));
                     }}
                   />
                 )}
@@ -2408,9 +2514,10 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
                     onClick={(): void => {
                       setAccion("baja");
                       setModo("BAJA");
-                      cargarVehiculos({ includeFinalizados: true }).catch((e) =>
-                        console.error(e)
-                      );
+                      cargarVehiculos({
+                        includeFinalizados: true,
+                        viewId: vehiculosViewBajaId || "",
+                      }).catch((e) => console.error(e));
                     }}
                   />
                 )}
@@ -2460,7 +2567,7 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
             showFumigacion={docsFlags.showFumigacion}
             showLimpieza={docsFlags.showLimpieza}
             showResBonificacion={docsFlags.showResBonificacion}
-            disabled={!!Transportista || accion === "visualizar"}
+            disabled={accion === "visualizar"}
           />
 
           <Notificaciones

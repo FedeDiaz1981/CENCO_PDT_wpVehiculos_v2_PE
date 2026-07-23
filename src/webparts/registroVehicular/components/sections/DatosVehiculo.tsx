@@ -462,12 +462,7 @@ const DatosVehiculo: React.FC<{
               options={EMPRESA_OPTIONS}
               selectedKey={safeVehiculo.EmpresaId || undefined}
               onChange={onEmpresaChange}
-              disabled={
-                disabled ||
-                (empresaBloqueada && !proveedor) ||
-                isLocked("Empresa") ||
-                isLocked("EmpresaId")
-              }
+              disabled={true}
             />
           </div>
 
@@ -801,7 +796,7 @@ const DatosVehiculo: React.FC<{
               className={classes.fieldLabel}
               style={{ display: "flex", alignItems: "center", gap: 6 }}
             >
-              <span>Altura de piso al furgón</span>
+              <span>Altura de piso a furgón *</span>
               <IconButton
                 iconProps={{ iconName: "Info" }}
                 title="Ver referencia"

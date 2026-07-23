@@ -19,7 +19,10 @@ import { getSP, initSP } from "../../pnp";
 export interface IRegistroVehicularWebPartProps {
   vehiculosListTitle: string;
   vehiculosViewModificacionId: string;
+  vehiculosViewBajaId: string;
   vehiculosViewVisualizacionId: string;
+  certificadosListTitle: string;
+  correosNotificacionDefault: string;
   mostrarIngresar: boolean;
   mostrarModificar: boolean;
   mostrarVisualizar: boolean;
@@ -57,8 +60,12 @@ export default class RegistroVehicularWebPart extends BaseClientSideWebPart<IReg
       vehiculosListTitle,
       vehiculosViewModificacionId:
         this.properties.vehiculosViewModificacionId || "",
+      vehiculosViewBajaId: this.properties.vehiculosViewBajaId || "",
       vehiculosViewVisualizacionId:
         this.properties.vehiculosViewVisualizacionId || "",
+      certificadosListTitle: this.properties.certificadosListTitle || "Certificados",
+      correosNotificacionDefault:
+        this.properties.correosNotificacionDefault || "",
       mostrarIngresar: this.properties.mostrarIngresar ?? true,
       mostrarModificar: this.properties.mostrarModificar ?? true,
       mostrarVisualizar: this.properties.mostrarVisualizar ?? true,
@@ -175,6 +182,15 @@ export default class RegistroVehicularWebPart extends BaseClientSideWebPart<IReg
       if (
         defaultViewId &&
         !visible.some(
+          (v) => String(v.Id || "") === this.properties.vehiculosViewBajaId
+        )
+      ) {
+        this.properties.vehiculosViewBajaId = defaultViewId;
+      }
+
+      if (
+        defaultViewId &&
+        !visible.some(
           (v) => String(v.Id || "") === this.properties.vehiculosViewVisualizacionId
         )
       ) {
@@ -229,11 +245,31 @@ export default class RegistroVehicularWebPart extends BaseClientSideWebPart<IReg
                   selectedKey: this.properties.vehiculosViewModificacionId || "",
                   disabled: this._viewsLoading || !this._viewOptions.length,
                 }),
+                PropertyPaneDropdown("vehiculosViewBajaId", {
+                  label: "Vista para dar de baja",
+                  options: this._viewOptions,
+                  selectedKey: this.properties.vehiculosViewBajaId || "",
+                  disabled: this._viewsLoading || !this._viewOptions.length,
+                }),
                 PropertyPaneDropdown("vehiculosViewVisualizacionId", {
                   label: "Vista para visualización",
                   options: this._viewOptions,
                   selectedKey: this.properties.vehiculosViewVisualizacionId || "",
                   disabled: this._viewsLoading || !this._viewOptions.length,
+                }),
+                PropertyPaneTextField("certificadosListTitle", {
+                  label: "Lista de certificados / adjuntos",
+                  placeholder: "Certificados",
+                  description:
+                    "Nombre exacto de la lista donde se guardan los adjuntos y documentos del vehículo.",
+                }),
+                PropertyPaneTextField("correosNotificacionDefault", {
+                  label: "Correos de notificación por defecto",
+                  placeholder: "correo1@dominio.com; correo2@dominio.com",
+                  description:
+                    "Valor inicial que se cargará en el campo 'Correos de notificación'.",
+                  multiline: true,
+                  rows: 3,
                 }),
                 PropertyPaneHorizontalRule(),
                 PropertyPaneLabel("_diagSiteUrl", {

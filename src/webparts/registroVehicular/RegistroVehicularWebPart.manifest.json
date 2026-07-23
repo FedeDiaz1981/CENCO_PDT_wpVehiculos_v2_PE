@@ -21,7 +21,10 @@
   "properties": {
     "vehiculosListTitle": "Vehiculos",
     "vehiculosViewModificacionId": "",
+    "vehiculosViewBajaId": "",
     "vehiculosViewVisualizacionId": "",
+    "certificadosListTitle": "Certificados",
+    "correosNotificacionDefault": "",
     "mostrarIngresar": true,
     "mostrarModificar": true,
     "mostrarVisualizar": true,

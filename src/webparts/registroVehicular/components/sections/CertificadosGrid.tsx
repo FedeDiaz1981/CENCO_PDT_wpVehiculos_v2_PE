@@ -16,6 +16,7 @@ import {
   getCertificadosListado,
   CertRow,
 } from "../../services/certificados.service";
+import { LISTS } from "../../services/fields";
 import {
   classes,
   primaryButtonStyles,
@@ -33,6 +34,7 @@ export const CertificadosGrid: React.FC<{
   placa?: string;
   disabled?: boolean; // si es true (p.ej. Dar de baja) todo queda bloqueado
   onStagedChange?: (items: { tipo: string; file: File }[]) => void;
+  certificadosListTitle?: string;
 
   /** === Flags de visibilidad (igual que en Documentacion.tsx) === */
   showTermoking?: boolean;
@@ -45,6 +47,7 @@ export const CertificadosGrid: React.FC<{
   placa,
   disabled = false,
   onStagedChange,
+  certificadosListTitle,
   showTermoking = false,
   showSanipes = false,
   showFumigacion = false,
@@ -85,7 +88,8 @@ export const CertificadosGrid: React.FC<{
       }
       setLoading(true);
       try {
-        const data = await getCertificadosListado(placa);
+        const listTitle = certificadosListTitle || LISTS.Certificados;
+        const data = await getCertificadosListado(placa, listTitle);
 
         // Aplica las mismas reglas de Documentacion.tsx
         const filtered = data.filter((r) => isVisible(r.tipo));
@@ -105,7 +109,7 @@ export const CertificadosGrid: React.FC<{
     };
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sp,placa, isVisible]);
+  }, [sp, placa, isVisible, certificadosListTitle]);
 
   // Notificar al padre cada vez que cambian los staged
   React.useEffect(() => {

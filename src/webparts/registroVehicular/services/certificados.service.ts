@@ -209,13 +209,15 @@ export async function saveCertificadosDeVehiculoSimple(args: {
     showLimpieza: boolean;
     showResBonificacion: boolean;
   };
+  listTitle?: string;
 }): Promise<void> {
-  const { placa, doc, docsFlags } = args;
+  const { placa, doc, docsFlags, listTitle = LISTS.Certificados } = args;
 
   await upsertCertificadoVehiculo({
     placa,
     tipo: "Tarjeta de propiedad",
     file: asFile(doc.propFile),
+    listTitle,
   });
 
   if (docsFlags.showResBonificacion) {
@@ -223,6 +225,7 @@ export async function saveCertificadosDeVehiculoSimple(args: {
       placa,
       tipo: "Bonificación",
       file: asFile(doc.resBonificacionFile),
+      listTitle,
     });
   }
 
@@ -232,6 +235,7 @@ export async function saveCertificadosDeVehiculoSimple(args: {
       tipo: "Fumigación",
       emision: doc.fumigacionDate,
       file: asFile(doc.fumigacionFile),
+      listTitle,
     });
   }
 
@@ -241,6 +245,7 @@ export async function saveCertificadosDeVehiculoSimple(args: {
     caducidad: doc.revTecDate,
     anio: doc.revTecText,
     file: asFile(doc.revTecFile),
+    listTitle,
   });
 
   const sanipesDate = asOptionalText(doc.SanipesDate);
@@ -254,6 +259,7 @@ export async function saveCertificadosDeVehiculoSimple(args: {
       resolucion: sanipesDate,
       expediente: sanipesText,
       file: sanipesFile,
+      listTitle,
     });
   }
 
@@ -263,6 +269,7 @@ export async function saveCertificadosDeVehiculoSimple(args: {
       tipo: "Termoking",
       emision: doc.termokingDate,
       file: asFile(doc.termokingFile),
+      listTitle,
     });
   }
 
@@ -272,6 +279,7 @@ export async function saveCertificadosDeVehiculoSimple(args: {
       tipo: "Limpieza y desinfección",
       emision: doc.limpiezaDate,
       file: asFile(doc.limpiezaFile),
+      listTitle,
     });
   }
 }

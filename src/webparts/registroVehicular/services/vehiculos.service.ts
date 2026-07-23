@@ -41,11 +41,13 @@ const DESIRED_FIELDS: readonly string[] = [
   // "correosnotificacion",
 ];
 
-let _allowedKeysPromise: Promise<Set<string>> | null = null;
+const _allowedKeysCache = new Map<string, Promise<Set<string>>>();
 async function getAllowedKeys(listTitle: string): Promise<Set<string>> {
-  if (_allowedKeysPromise) return _allowedKeysPromise;
+  const key = (listTitle || "").trim().toLowerCase();
+  if (_allowedKeysCache.has(key)) return _allowedKeysCache.get(key)!;
+
   const sp = SP();
-  _allowedKeysPromise = (async () => {
+  const promise = (async () => {
     const fields = await sp.web.lists
       .getByTitle(listTitle)
       .fields.select("InternalName,TypeAsString,Hidden,ReadOnlyField")();
@@ -53,11 +55,15 @@ async function getAllowedKeys(listTitle: string): Promise<Set<string>> {
     for (const f of fields) {
       if (f.Hidden || f.ReadOnlyField) continue;
       allowed.add(f.InternalName);
-      if (/Lookup|User/i.test(f.TypeAsString || "")) allowed.add(`${f.InternalName}Id`);
+      if (/Lookup|User/i.test(f.TypeAsString || "")) {
+        allowed.add(`${f.InternalName}Id`);
+      }
     }
     return allowed;
   })();
-  return _allowedKeysPromise;
+
+  _allowedKeysCache.set(key, promise);
+  return promise;
 }
 
 export async function getVehiculoByPlaca(
