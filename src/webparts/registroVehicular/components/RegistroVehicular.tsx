@@ -31,6 +31,9 @@ import {
   saveCertificadosDeVehiculoSimple,
   getCertificadosListado,
   deleteCertificadosPorPlaca,
+  getCertificadosVehiculoConfig,
+  updateCertificadosPadrePorPlaca,
+  CertificadoVehiculoConfig,
 } from "../services/certificados.service";
 import { IVehiculoItem } from "../services/vehiculos.service";
 import { getEmpresaForCurrentUser } from "../services/proveedores.service";
@@ -71,6 +74,7 @@ type IVehiculoItemFull = IVehiculoItem & {
   CorreosNotificacion?: string;
   Empresa?: string;
   EmpresaId?: number;
+  UsuariosProveedorIds?: number[];
 };
 
 type DocFileValue = File | { name: string; url?: string } | string | undefined;
@@ -121,6 +125,7 @@ const vehiculoInicial: IVehiculoItemFull = {
   CorreosNotificacion: "",
   Empresa: "",
   EmpresaId: undefined,
+  UsuariosProveedorIds: [],
 };
 
 const createEmptyVehiculo = (defaultCorreos = ""): IVehiculoItemFull => ({
@@ -378,6 +383,20 @@ const asBoolean = (value: unknown): boolean => {
   return false;
 };
 
+const isFinalizado = (value: unknown): boolean => {
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (["pendiente", "pending", "no", "false", "0"].includes(normalized)) {
+      return false;
+    }
+    if (["finalizado", "finalizada", "final", "sí", "si", "yes", "true", "1"].includes(normalized)) {
+      return true;
+    }
+  }
+
+  return asBoolean(value);
+};
+
 const mapVehiculoRow = (row: Record<string, unknown>): IVehiculoItemFull => {
   const proveedorValue = readRowValue(row, VEH_FIELDS.Proveedor);
   const proveedorText = asText(proveedorValue);
@@ -420,7 +439,7 @@ const mapVehiculoRow = (row: Record<string, unknown>): IVehiculoItemFull => {
     TipoTemperatura: asText(readRowValue(row, VEH_FIELDS.TipoTemperatura)),
     TipoUnidad: asText(readRowValue(row, VEH_FIELDS.TipoUnidad)),
     Activo: asBoolean(readRowValue(row, VEH_FIELDS.Activo)),
-    Final: asBoolean(readRowValue(row, VEH_FIELDS.Final)),
+    Final: isFinalizado(readRowValue(row, VEH_FIELDS.Final)),
     CorreosNotificacion: asText(readRowValue(row, VEH_FIELDS.Correos)),
     Empresa: proveedorText,
     EmpresaId: proveedorId,
@@ -590,7 +609,7 @@ const DocumentacionLiteLocal: React.FC<{
           <div className={`${classes.docItem} ${classes.docLabelScope}`}>
             <DocCard
               title="SANIPES"
-              dateLabel="Fecha de resoluci?n de expediente"
+              dateLabel="Fecha de resolución de expediente"
               dateValue={doc.SanipesDate || ""}
               onDateChange={
                 disabled
@@ -598,7 +617,7 @@ const DocumentacionLiteLocal: React.FC<{
                   : (value?: string) => setField("SanipesDate")(value || "")
               }
               dateMax={todayStr}
-              textLabel="N? de expediente"
+              textLabel="N° de expediente"
               textValue={doc.SanipesText ?? ""}
               onTextChange={
                 disabled
@@ -841,26 +860,44 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
     (): Record<string, boolean | undefined> =>
       accion === "visualizar"
         ? {}
-        : Proveedor
-        ? {
-            EmpresaId: true,
-            Placa: true,
-            Marca: true,
-            Modelo: true,
-          }
         : {
             EmpresaId: true,
+            Temperatura: true,
+            TipoUnidad: true,
             Placa: true,
+            SOAT: true,
             Marca: true,
             Modelo: true,
+            Capacidad: true,
+            AlturaPiso: true,
+            PesoCargaUtil: true,
+            PesoNeto: true,
+            ...(showCodigoVehicular ? { CodigoInterno: true } : {}),
           },
-    [Proveedor, accion, showCodigoVehicular]
+    [accion, showCodigoVehicular]
   );
   const [empresaBloqueada, setEmpresaBloqueada] =
     React.useState<boolean>(false);
   const [empresaUsuarioId, setEmpresaUsuarioId] = React.useState<
     number | undefined
   >(undefined);
+  const [certificadosConfig, setCertificadosConfig] =
+    React.useState<CertificadoVehiculoConfig>({});
+
+  React.useEffect(() => {
+    let active = true;
+    getCertificadosVehiculoConfig()
+      .then((config) => {
+        if (active) setCertificadosConfig(config);
+      })
+      .catch((err) => {
+        console.error("Error cargando plazos y alertas de certificados", err);
+        if (active) setCertificadosConfig({});
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const [doc, setDoc] = React.useState<DocStateLocal>({
     propFile: undefined,
@@ -946,7 +983,7 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
       rev.setHours(0, 0, 0, 0);
       if (rev < hoy) {
         errorMsg =
-          "La fecha de vencimiento de la revisi?n t?cnica no puede estar vencida.";
+          "La fecha de vencimiento de la revisión técnica no puede estar vencida.";
       }
     }
 
@@ -958,7 +995,7 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
         (hoy.getMonth() - fum.getMonth());
       if (diffMeses > 6) {
         errorMsg =
-          "La fecha de emisi?n del certificado de fumigaci?n no puede tener m?s de 6 meses de antig?edad.";
+          "La fecha de emisión del certificado de fumigación no puede tener más de 6 meses de antigüedad.";
       }
     }
 
@@ -970,7 +1007,7 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
         (hoy.getMonth() - termokingD.getMonth());
       if (diffMeses > 6) {
         errorMsg =
-          "La fecha de emisi?n del certificado de termoking no puede tener m?s de 6 meses de antig?edad.";
+          "La fecha de emisión del certificado de termoking no puede tener más de 6 meses de antigüedad.";
       }
     }
 
@@ -981,7 +1018,7 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
         (hoy.getTime() - limpiezaD.getTime()) / (1000 * 60 * 60 * 24);
       if (diffDias > 31) {
         errorMsg =
-          "La fecha de emisi?n del certificado de limpieza y desinfecci?n no puede tener m?s de un mes de antig?edad.";
+          "La fecha de emisión del certificado de limpieza y desinfección no puede tener más de un mes de antigüedad.";
       }
     }
 
@@ -1355,7 +1392,7 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
         });
       } catch (err) {
         console.error("Error cargando certificados", err);
-        alert("No se pudo cargar la documentaci?n de este veh?culo.");
+        alert("No se pudo cargar la documentación de este vehículo.");
       }
 
       setModo(
@@ -1469,8 +1506,8 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
     }
 
     loadVehicleForEdit(vehiculoId).catch((err) => {
-      console.error("No se pudo cargar el veh?culo desde la URL", err);
-      alert("No se pudo abrir el veh?culo indicado desde la URL.");
+      console.error("No se pudo cargar el vehículo desde la URL", err);
+      alert("No se pudo abrir el vehículo indicado desde la URL.");
     });
   }, [loadVehicleForEdit]);
 
@@ -1532,7 +1569,7 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
           ok = true;
         } else {
           alert(
-            "Ten?s que ingresar un motivo para poder dar de baja el veh?culo."
+            "Tenés que ingresar un motivo para poder dar de baja el vehículo."
           );
         }
       }
@@ -1549,21 +1586,21 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
               .update({ motivobaja: motivo });
           }
           await deleteVehiculoYCertificados(sp, placa);
-          alert("Veh?culo y certificados eliminados correctamente.");
+          alert("Vehículo y certificados eliminados correctamente.");
         } else {
           if (!vehiculo.Id) {
-            alert("No se encontr? el Id del veh?culo para dar de baja.");
+            alert("No se encontró el Id del vehículo para dar de baja.");
           } else {
             await vehList.items.getById(vehiculo.Id).update({
               [VEH_FIELDS.Activo]: false,
               motivobaja: motivo,
             });
-            alert("Veh?culo dado de baja (marcado como inactivo).");
+            alert("Vehículo dado de baja (marcado como inactivo).");
           }
         }
       } catch (err) {
-        console.error("Error al dar de baja el veh?culo", err);
-        alert("Error al dar de baja el veh?culo. Revis? consola.");
+        console.error("Error al dar de baja el vehículo", err);
+        alert("Error al dar de baja el vehículo. Revisá consola.");
       } finally {
         setBusy(false);
       }
@@ -1577,7 +1614,7 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
           .items.getById(vehiculo.Id)
           .select("Id", VEH_FIELDS.Final)()) as Record<string, unknown>;
 
-        if (current && current[VEH_FIELDS.Final] === false) {
+        if (current && isFinalizado(current[VEH_FIELDS.Final])) {
           alert(
             "No se puede modificar un vehículo finalizado. Actualizá la grilla e intentá nuevamente."
           );
@@ -1617,49 +1654,27 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
       }
     };
 
-    // =========================
-    // VALIDACIÓN CAMPOS VEHÍCULO
-    // =========================
+    // Mantener la validacion alineada con los campos marcados en el formulario.
     req(vehiculo.EmpresaId, "Empresa", ["Empresa", "EmpresaId"]);
-    req(vehiculo.Temperatura, "Temperatura", "Temperatura");
-    req(vehiculo.TipoUnidad, "Tipo de unidad", "TipoUnidad");
-
-    if (
-      (vehiculo.Temperatura || "").trim().toLowerCase() === "con temperatura"
-    ) {
-      req(vehiculo.TipoTemperatura, "Tipo temperatura", "TipoTemperatura");
-    }
-
-    req(vehiculo.Marca, "Marca", "Marca");
-    req(vehiculo.Modelo, "Modelo", "Modelo");
-
     req(vehiculo.Placa, "Placa", ["Placa", "Title"]);
     if (vehiculo.Placa && !isPlacaValid(vehiculo.Placa, placaPattern)) {
       errores.push("Placa");
     }
+    req(vehiculo.Marca, "Marca", "Marca");
+    req(vehiculo.Modelo, "Modelo", "Modelo");
+
+    req(vehiculo.Temperatura, "Temperatura", "Temperatura");
+    req(vehiculo.TipoUnidad, "Tipo de unidad", "TipoUnidad");
     req(vehiculo.SOAT, "SOAT", "SOAT");
+    req(vehiculo.Capacidad, "Capacidad", "Capacidad");
+    req(vehiculo.AlturaPiso, "Altura de piso al furgón", "AlturaPiso");
+    req(vehiculo.PesoCargaUtil, "Peso útil", "PesoCargaUtil");
+    req(vehiculo.PesoNeto, "Peso bruto", "PesoNeto");
     if (showCodigoVehicular) {
-      req(vehiculo.Codigo || vehiculo.CodigoInterno, "C?digo de unidad", [
+      req(vehiculo.Codigo || vehiculo.CodigoInterno, "Código de unidad", [
         "Codigo",
         "CodigoInterno",
       ]);
-    }
-
-    req(vehiculo.Capacidad, "Capacidad", "Capacidad");
-    req(vehiculo.AlturaPiso, "Altura de piso al furg?n", "AlturaPiso");
-    req(vehiculo.PesoCargaUtil, "Peso ?til", "PesoCargaUtil");
-    req(vehiculo.PesoNeto, "Peso bruto", "PesoNeto");
-
-    if (
-      vehiculo.Capacidad &&
-      String(vehiculo.Capacidad).toLowerCase().includes("otro")
-    ) {
-      req(vehiculo.Otros, "Capacidad otros", "Otros");
-    }
-
-    if (vehiculo.Rampa) {
-      req(vehiculo.LargoRampa, "Largo de rampa", "LargoRampa");
-      req(vehiculo.AnchoRampa, "Ancho de rampa", "AnchoRampa");
     }
 
     // =========================
@@ -1684,26 +1699,26 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
       // Tarjeta propiedad (siempre)
       if (!hasDocFile(doc.propFile)) erroresDocs.push("Tarjeta de propiedad");
 
-      // Revisi?n t?cnica (siempre)
+      // Revisión técnica (siempre)
       if (!hasValueLocal(doc.revTecDate))
-        erroresDocs.push("Fecha de vencimiento (Revisi?n t?cnica)");
+        erroresDocs.push("Fecha de vencimiento (Revisión técnica)");
       if (!hasValueLocal(doc.revTecText))
-        erroresDocs.push("A?o de fabricaci?n (Revisi?n t?cnica)");
+        erroresDocs.push("Año de fabricación (Revisión técnica)");
       if (!hasDocFile(doc.revTecFile))
-        erroresDocs.push("Documento (Revisi?n t?cnica)");
+        erroresDocs.push("Documento (Revisión técnica)");
 
-      // Fumigaci?n (cuando aplica)
+      // Fumigación (cuando aplica)
       if (docsFlags.showFumigacion) {
         if (!hasValueLocal(doc.fumigacionDate))
-          erroresDocs.push("Fecha de emisi?n (Fumigaci?n)");
+          erroresDocs.push("Fecha de emisión (Fumigación)");
         if (!hasDocFile(doc.fumigacionFile))
-          erroresDocs.push("Certificado de fumigaci?n");
+          erroresDocs.push("Certificado de fumigación");
       }
 
-      // Termoking (cuando aplica)  âœ… lo que pediste
+      // Termoking (cuando aplica)
       if (docsFlags.showTermoking) {
         if (!hasValueLocal(doc.termokingDate))
-          erroresDocs.push("Fecha de emisi?n (Termoking)");
+          erroresDocs.push("Fecha de emisión (Termoking)");
         if (!hasDocFile(doc.termokingFile))
           erroresDocs.push("Certificado de mantenimiento de termoking");
       }
@@ -1711,22 +1726,22 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
       // Limpieza (cuando aplica)
       if (docsFlags.showLimpieza) {
         if (!hasValueLocal(doc.limpiezaDate))
-          erroresDocs.push("Fecha de emisi?n (Limpieza y desinfecci?n)");
+          erroresDocs.push("Fecha de emisión (Limpieza y desinfección)");
         if (!hasDocFile(doc.limpiezaFile))
-          erroresDocs.push("Certificado de limpieza y desinfecci?n");
+          erroresDocs.push("Certificado de limpieza y desinfección");
       }
 
-      // Bonificaci?n (cuando aplica)
+      // Bonificación (cuando aplica)
       if (docsFlags.showResBonificacion) {
         if (!hasDocFile(doc.resBonificacionFile))
-          erroresDocs.push("Resoluci?n de bonificaci?n");
+          erroresDocs.push("Resolución de bonificación");
       }
 
       // SANIPES NO obligatorio => no se valida
     }
 
     // =========================
-    // CORTE SI HAY ERRORES (veh?culo o docs)
+    // CORTE SI HAY ERRORES (vehículo o docs)
     // =========================
     if (errores.length > 0 || erroresDocs.length > 0) {
       const partes: string[] = [];
@@ -1734,7 +1749,7 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
       if (erroresDocs.length > 0) partes.push(erroresDocs.join(", "));
 
       setValidationError(
-        "Complet? los campos obligatorios: " + partes.join(", ")
+        "Completá los campos obligatorios: " + partes.join(", ")
       );
       return;
     }
@@ -1775,6 +1790,11 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
         [VEH_FIELDS.TipoUnidad]: vehiculo.TipoUnidad || "",
         [VEH_FIELDS.Activo]: vehiculo.Activo !== false,
         [VEH_FIELDS.Correos]: cleanRichText(vehiculo.CorreosNotificacion),
+        [`${VEH_FIELDS.UsuariosProveedor}Id`]: (
+          vehiculo.UsuariosProveedorIds || []
+        ).filter((id) => Number.isFinite(id) && id > 0),
+        [VEH_FIELDS.UsuarioUltimaModificacion]:
+          spContext.pageContext.user.displayName || "",
       };
 
       if (vehiculo.EmpresaId && Number(vehiculo.EmpresaId) > 0) {
@@ -1789,6 +1809,18 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
           .update(item as Record<string, unknown>);
         savedVehiculoId = vehiculo.Id;
       } else {
+        // Evita duplicar una placa aunque SharePoint no tenga el campo Title
+        // configurado como unico. La validacion del backend sigue siendo la
+        // ultima barrera ante dos altas concurrentes.
+        const samePlate = (await vehList.items
+          .select("Id")
+          .filter(`${VEH_FIELDS.Title} eq '${placa.replace(/'/g, "''")}'`)
+          .top(2)()) as Array<{ Id?: number }>;
+        const duplicate = samePlate.find((row) => Number(row.Id) !== Number(vehiculo.Id || 0));
+        if (duplicate?.Id) {
+          throw new Error(`Ya existe un vehiculo registrado con la placa ${placa}.`);
+        }
+
         const addResult = (await vehList.items.add(
           item as Record<string, unknown>
         )) as { data?: { Id?: number; ID?: number } };
@@ -1808,11 +1840,30 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
       }
 
       try {
+        const datosPadreCertificado = {
+          temperatura: vehiculo.Temperatura,
+          proveedorId: vehiculo.EmpresaId,
+          proveedorNombre: vehiculo.Empresa || vehiculo.Proveedor,
+          capacidad: vehiculo.Capacidad,
+          origen: Transportista ? ("Transportista" as const) : ("Proveedor" as const),
+          usuariosProveedorIds: vehiculo.UsuariosProveedorIds,
+        };
+
+        if (accion === "actualizar") {
+          await updateCertificadosPadrePorPlaca(
+            placa,
+            datosPadreCertificado,
+            certificadosList
+          );
+        }
+
         await saveCertificadosDeVehiculoSimple({
           placa,
           doc,
           docsFlags,
           listTitle: certificadosList,
+          padre: datosPadreCertificado,
+          config: certificadosConfig,
         });
       } catch (errDocs) {
         console.error("Error al guardar certificados", errDocs);
@@ -1845,7 +1896,7 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
         return;
       }
 
-      alert("Veh?culo y certificados guardados correctamente.");
+      alert("Vehículo y certificados guardados correctamente.");
 
       if (redireccion && urlRedireccion && urlRedireccion.trim()) {
         redirectContainingPage(resolveRedirectUrl(urlRedireccion));
@@ -1854,20 +1905,20 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
 
       resetFormulario(undefined, { scrollTop: true });
     } catch (err) {
-      console.error("Error al guardar veh?culo o certificados", err);
+      console.error("Error al guardar vehículo o certificados", err);
       const raw = getErrorText(err);
       const placa = (vehiculo.Placa || "").trim();
 
       if (isDuplicatePlacaError(raw) && placa) {
         setErrorModal({
           title: "Error al guardar",
-          message: `Error, no se puede hacer un doble registro de un veh?culo con placa ${placa}.`,
+          message: `Error, no se puede hacer un doble registro de un vehículo con placa ${placa}.`,
         });
       } else {
         setErrorModal({
           title: "Error al guardar",
           message:
-            "Ocurri? un error al guardar el veh?culo. Verific? los datos e intent? nuevamente.",
+            "Ocurrió un error al guardar el vehículo. Verificá los datos e intentá nuevamente.",
         });
       }
     } finally {
@@ -1892,6 +1943,8 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
     deleteVehiculoYCertificados,
     resetFormulario,
     vehiculosList,
+    certificadosList,
+    certificadosConfig,
   ]);
 
   const cargarVehiculos = React.useCallback(
@@ -2038,7 +2091,7 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
 
           const filtros: string[] = [`${VEH_FIELDS.Activo} eq 1`];
           if (!includeFinalizados) {
-            filtros.push(`${VEH_FIELDS.Final} eq 1`);
+            filtros.push(`${VEH_FIELDS.Final} eq 0`);
           }
           if ((Proveedor || !!Transportista) && empresaUsuarioId) {
             filtros.push(`${VEH_FIELDS.Proveedor}/Id eq ${empresaUsuarioId}`);
@@ -2080,7 +2133,7 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
           _setVehiculos([]);
         }
         console.error("Error leyendo lista Vehiculos", err);
-        alert("No se pudo cargar la lista de veh?culos.");
+        alert("No se pudo cargar la lista de vehículos.");
       }
   }, [
     sp,
@@ -2160,7 +2213,7 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
             .items.getById(veh.Id)
             .select("Id", VEH_FIELDS.Final)()) as Record<string, unknown>;
 
-          if (current && current[VEH_FIELDS.Final] === false) {
+          if (current && isFinalizado(current[VEH_FIELDS.Final])) {
             alert(
               "El vehículo ya fue finalizado. Actualizá la grilla para ver el estado actual."
             );
@@ -2307,7 +2360,7 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
         });
       } catch (err) {
         console.error("Error cargando certificados", err);
-        alert("No se pudo cargar la documentaci?n de este veh?culo.");
+        alert("No se pudo cargar la documentación de este vehículo.");
       }
 
       if (accion === "baja") {
@@ -2374,21 +2427,9 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
         missing.push(label);
       }
     };
-    if (Proveedor) {
-      req(vehiculo.EmpresaId, "Empresa", ["Empresa", "EmpresaId"]);
-      req(vehiculo.Placa, "Placa", ["Placa", "Title"]);
-      if (vehiculo.Placa && !isPlacaValid(vehiculo.Placa, placaPattern)) {
-        missing.push("Placa");
-      }
-      req(vehiculo.Marca, "Marca", "Marca");
-      req(vehiculo.Modelo, "Modelo", "Modelo");
-      return missing;
-    }
-
-    // Empresa
     req(vehiculo.EmpresaId, "Empresa", ["Empresa", "EmpresaId"]);
-
-    // Solo los campos obligatorios definidos para el formulario
+    req(vehiculo.Temperatura, "Temperatura", "Temperatura");
+    req(vehiculo.TipoUnidad, "Tipo de unidad", "TipoUnidad");
     req(vehiculo.Marca, "Marca", "Marca");
     req(vehiculo.Modelo, "Modelo", "Modelo");
 
@@ -2396,8 +2437,19 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
     if (vehiculo.Placa && !isPlacaValid(vehiculo.Placa, placaPattern)) {
       missing.push("Placa");
     }
+    req(vehiculo.SOAT, "SOAT", "SOAT");
+    req(vehiculo.Capacidad, "Capacidad", "Capacidad");
+    req(vehiculo.AlturaPiso, "Altura de piso a furgón", "AlturaPiso");
+    req(vehiculo.PesoCargaUtil, "Peso útil", "PesoCargaUtil");
+    req(vehiculo.PesoNeto, "Peso bruto", "PesoNeto");
+    if (showCodigoVehicular) {
+      req(vehiculo.Codigo || vehiculo.CodigoInterno, "Código de unidad", [
+        "Codigo",
+        "CodigoInterno",
+      ]);
+    }
     return missing;
-  }, [Proveedor, accion, vehiculo, lockedFields, placaPattern, showCodigoVehicular]);
+  }, [accion, vehiculo, lockedFields, placaPattern, showCodigoVehicular]);
 
   React.useEffect((): void => {
     if (accion === "baja" || accion === "visualizar") {
@@ -2409,7 +2461,7 @@ const RegistroVehicular: React.FC<RegistroVehicularProps> = (_props) => {
 
     if (allMissing.length > 0) {
       setValidationError(
-        "Complet? los campos obligatorios: " + allMissing.join(", ")
+        "Completá los campos obligatorios: " + allMissing.join(", ")
       );
     } else {
       setValidationError(undefined);

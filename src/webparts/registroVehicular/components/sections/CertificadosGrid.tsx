@@ -29,6 +29,13 @@ type RowEx = CertRow & {
   _staged?: boolean;                    // cambio pendiente de guardar
 };
 
+const formatDateOnly = (value?: string): string => {
+  const raw = String(value || "").slice(0, 10);
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw);
+  if (!match) return "-";
+  return `${match[3]}/${match[2]}/${match[1]}`;
+};
+
 export const CertificadosGrid: React.FC<{
   sp: SPFI;
   placa?: string;
@@ -157,8 +164,8 @@ export const CertificadosGrid: React.FC<{
         minWidth: 300,
         isResizable: true,
         onRender: (r: RowEx) => {
-          const d = r.emision || r.resolucion || null;
-          const fecha = d ? new Date(d).toLocaleDateString() : "-";
+          const d = r.emision || r.resolucion || undefined;
+          const fecha = formatDateOnly(d);
           const extra = r.anio || r.expediente || "-";
           const id = `file_${r.tipo}`;
 

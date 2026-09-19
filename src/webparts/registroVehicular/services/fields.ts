@@ -3,6 +3,8 @@ export const LISTS = { Vehiculos:"Vehiculos", Certificados:"Certificados", Prove
 export const VEH_FIELDS = {
   Title: "Title",
   Proveedor: "Proveedor",
+  UsuariosProveedor: "usuariosxprov",
+  UsuarioUltimaModificacion: "usuarioultimamodificacion",
   SOAT: "soat",
   Codigo: "codigo",
   Marca: "marca",

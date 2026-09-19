@@ -6,6 +6,167 @@ import "@pnp/sp/webs";
 import "@pnp/sp/lists";
 import "@pnp/sp/items";
 import "@pnp/sp/attachments";
+import "@pnp/sp/fields";
+
+type FieldInfo = {
+  Title: string;
+  InternalName: string;
+  TypeAsString?: string;
+  AllowMultipleValues?: boolean;
+};
+
+export type CertificadoVehiculoConfig = Record<
+  string,
+  { plazo?: string | number; alerta?: string | number }
+>;
+
+export type CertificadoVehiculoPadre = {
+  temperatura?: string;
+  proveedorId?: number;
+  proveedorNombre?: string;
+  capacidad?: string;
+  origen?: "Transportista" | "Proveedor";
+  usuariosProveedorIds?: number[];
+};
+
+const normalizeKey = (value: unknown): string =>
+  String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/certificado de |certificado |mantenimiento de /g, "")
+    .trim();
+
+const certificateKey = (value: unknown): string => normalizeKey(value);
+const fieldCache = new Map<string, Promise<FieldInfo[]>>();
+
+const getFields = (listTitle: string): Promise<FieldInfo[]> => {
+  const cached = fieldCache.get(listTitle);
+  if (cached) return cached;
+  const request = SP().web.lists
+    .getByTitle(listTitle)
+    .fields.select("Title", "InternalName", "TypeAsString", "AllowMultipleValues")() as Promise<FieldInfo[]>;
+  fieldCache.set(listTitle, request);
+  return request;
+};
+
+const findField = (fields: FieldInfo[], ...names: string[]): FieldInfo | undefined => {
+  const wanted = names.map(normalizeKey);
+  return fields.find(
+    (field) => wanted.includes(normalizeKey(field.Title)) || wanted.includes(normalizeKey(field.InternalName))
+  );
+};
+
+const readFieldValue = (item: Record<string, unknown>, field?: FieldInfo): unknown =>
+  field ? item[field.InternalName] : undefined;
+
+export async function getCertificadosVehiculoConfig(): Promise<CertificadoVehiculoConfig> {
+  const sp = SP();
+  const [plazosFields, alertasFields] = await Promise.all([
+    getFields("Plazos"),
+    getFields("Vigencia certificados"),
+  ]);
+  const plazoTitle = findField(plazosFields, "Título", "Title");
+  const plazoCategoria = findField(plazosFields, "categoria", "categoría");
+  const plazoValue = findField(plazosFields, "plazo");
+  const alertaTitle = findField(alertasFields, "Título", "Title");
+  const alertaTipo = findField(alertasFields, "Tipo de certificado");
+  const alertaValue = findField(alertasFields, "Alerta");
+
+  const plazosSelect = [plazoTitle, plazoCategoria, plazoValue]
+    .filter((field): field is FieldInfo => !!field)
+    .map((field) => field.InternalName);
+  const alertasSelect = [alertaTitle, alertaTipo, alertaValue]
+    .filter((field): field is FieldInfo => !!field)
+    .map((field) => field.InternalName);
+  const [plazos, alertas] = await Promise.all([
+    sp.web.lists.getByTitle("Plazos").items.select(...plazosSelect).top(500)() as Promise<Array<Record<string, unknown>>>,
+    sp.web.lists.getByTitle("Vigencia certificados").items.select(...alertasSelect).top(500)() as Promise<Array<Record<string, unknown>>>,
+  ]);
+
+  const result: CertificadoVehiculoConfig = {};
+  for (const item of plazos) {
+    if (normalizeKey(readFieldValue(item, plazoCategoria)) !== "vehiculo") continue;
+    const key = certificateKey(readFieldValue(item, plazoTitle));
+    if (key) result[key] = { ...result[key], plazo: readFieldValue(item, plazoValue) as string | number };
+  }
+  for (const item of alertas) {
+    const tipo = normalizeKey(readFieldValue(item, alertaTipo));
+    if (tipo && tipo !== "v" && tipo !== "vehiculo") continue;
+    const key = certificateKey(readFieldValue(item, alertaTitle));
+    if (key) result[key] = { ...result[key], alerta: readFieldValue(item, alertaValue) as string | number };
+  }
+  return result;
+}
+
+const setFieldValue = (payload: Record<string, unknown>, field: FieldInfo | undefined, value: unknown): void => {
+  if (!field || value === undefined || value === null || value === "") return;
+  const type = String(field.TypeAsString || "").toLowerCase();
+  if (type.includes("lookup") || type.includes("user")) {
+    const values = Array.isArray(value) ? value : [value];
+    payload[`${field.InternalName}Id`] = field.AllowMultipleValues
+      ? values.map(Number).filter((id) => id > 0)
+      : Number(values[0]);
+    return;
+  }
+  if (["integer", "number", "currency"].includes(type)) {
+    const numeric = Number(value);
+    if (Number.isFinite(numeric)) payload[field.InternalName] = numeric;
+    return;
+  }
+  if (type.includes("multi") && type.includes("choice")) {
+    payload[field.InternalName] = Array.isArray(value)
+      ? value.map(String)
+      : [String(value)];
+    return;
+  }
+
+  // SharePoint no convierte números ni arreglos automáticamente a Edm.String.
+  payload[field.InternalName] = Array.isArray(value)
+    ? value.map(String).join("; ")
+    : String(value);
+};
+
+const buildPadrePatch = (
+  fields: FieldInfo[],
+  padre?: CertificadoVehiculoPadre
+): Record<string, unknown> => {
+  const patch: Record<string, unknown> = {};
+  setFieldValue(patch, findField(fields, "temperatura"), padre?.temperatura);
+
+  const proveedorField = findField(fields, "Proveedor");
+  const proveedorType = String(proveedorField?.TypeAsString || "").toLowerCase();
+  setFieldValue(
+    patch,
+    proveedorField,
+    proveedorType.includes("lookup") || proveedorType.includes("user")
+      ? padre?.proveedorId
+      : padre?.proveedorNombre
+  );
+  setFieldValue(patch, findField(fields, "Capacidad"), padre?.capacidad);
+  setFieldValue(patch, findField(fields, "origen"), padre?.origen);
+  setFieldValue(patch, findField(fields, "Usuarios"), padre?.usuariosProveedorIds);
+  return patch;
+};
+
+export async function updateCertificadosPadrePorPlaca(
+  placa: string,
+  padre: CertificadoVehiculoPadre,
+  listTitle: string = LISTS.Certificados
+): Promise<void> {
+  const sp = SP();
+  const list = sp.web.lists.getByTitle(listTitle);
+  const fields = await getFields(listTitle);
+  const patch = buildPadrePatch(fields, padre);
+  if (Object.keys(patch).length === 0) return;
+
+  const items = (await list.items
+    .select("Id")
+    .filter(`${CERT_FIELDS.Title} eq '${esc(placa)}'`)
+    .top(500)()) as Array<{ Id: number }>;
+
+  await Promise.all(items.map((item) => list.items.getById(item.Id).update(patch)));
+}
 
 export interface ICertificadoItem {
   Id: number;
@@ -93,6 +254,8 @@ export async function upsertCertificadoVehiculo(opts: {
   expediente?: string;
   file?: File;
   listTitle?: string;
+  padre?: CertificadoVehiculoPadre;
+  config?: CertificadoVehiculoConfig;
 }): Promise<{ id: number; archivo?: string }> {
   const {
     placa,
@@ -104,11 +267,14 @@ export async function upsertCertificadoVehiculo(opts: {
     expediente,
     file,
     listTitle = LISTS.Certificados,
+    padre,
+    config,
   } = opts;
 
   const sp = SP();
   await ensureAttachmentsEnabled(sp, listTitle);
   const list = sp.web.lists.getByTitle(listTitle);
+  const fields = await getFields(listTitle);
 
   const existing = (await list.items
     .select("Id")
@@ -126,6 +292,15 @@ export async function upsertCertificadoVehiculo(opts: {
   if (anio !== undefined && String(anio).trim() !== "") patch[CERT_FIELDS.Anio] = String(anio);
   if (resolucion !== undefined) patch[CERT_FIELDS.Resolucion] = resolucion;
   if (expediente !== undefined) patch[CERT_FIELDS.Expediente] = expediente;
+  Object.assign(patch, buildPadrePatch(fields, padre));
+
+  const certificateConfig = config?.[certificateKey(tipo)];
+  setFieldValue(patch, findField(fields, "Plazos", "Plazo"), certificateConfig?.plazo);
+  setFieldValue(
+    patch,
+    findField(fields, "ParametroAlerta", "Parámetro alerta", "Parametro alerta"),
+    certificateConfig?.alerta
+  );
 
   let id: number;
 
@@ -210,14 +385,21 @@ export async function saveCertificadosDeVehiculoSimple(args: {
     showResBonificacion: boolean;
   };
   listTitle?: string;
+  padre?: CertificadoVehiculoPadre;
+  config?: CertificadoVehiculoConfig;
 }): Promise<void> {
-  const { placa, doc, docsFlags, listTitle = LISTS.Certificados } = args;
+  const { placa, doc, docsFlags, padre, config, listTitle = LISTS.Certificados } = args;
+  const resolvedConfig =
+    config && Object.keys(config).length > 0
+      ? config
+      : await getCertificadosVehiculoConfig();
+  const common = { listTitle, padre, config: resolvedConfig };
 
   await upsertCertificadoVehiculo({
     placa,
     tipo: "Tarjeta de propiedad",
     file: asFile(doc.propFile),
-    listTitle,
+    ...common,
   });
 
   if (docsFlags.showResBonificacion) {
@@ -225,7 +407,7 @@ export async function saveCertificadosDeVehiculoSimple(args: {
       placa,
       tipo: "Bonificación",
       file: asFile(doc.resBonificacionFile),
-      listTitle,
+      ...common,
     });
   }
 
@@ -235,7 +417,7 @@ export async function saveCertificadosDeVehiculoSimple(args: {
       tipo: "Fumigación",
       emision: doc.fumigacionDate,
       file: asFile(doc.fumigacionFile),
-      listTitle,
+      ...common,
     });
   }
 
@@ -245,7 +427,7 @@ export async function saveCertificadosDeVehiculoSimple(args: {
     caducidad: doc.revTecDate,
     anio: doc.revTecText,
     file: asFile(doc.revTecFile),
-    listTitle,
+    ...common,
   });
 
   const sanipesDate = asOptionalText(doc.SanipesDate);
@@ -259,7 +441,7 @@ export async function saveCertificadosDeVehiculoSimple(args: {
       resolucion: sanipesDate,
       expediente: sanipesText,
       file: sanipesFile,
-      listTitle,
+      ...common,
     });
   }
 
@@ -269,7 +451,7 @@ export async function saveCertificadosDeVehiculoSimple(args: {
       tipo: "Termoking",
       emision: doc.termokingDate,
       file: asFile(doc.termokingFile),
-      listTitle,
+      ...common,
     });
   }
 
@@ -279,7 +461,7 @@ export async function saveCertificadosDeVehiculoSimple(args: {
       tipo: "Limpieza y desinfección",
       emision: doc.limpiezaDate,
       file: asFile(doc.limpiezaFile),
-      listTitle,
+      ...common,
     });
   }
 }

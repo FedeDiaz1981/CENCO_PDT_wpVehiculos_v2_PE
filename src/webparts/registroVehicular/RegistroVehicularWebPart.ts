@@ -73,7 +73,9 @@ export default class RegistroVehicularWebPart extends BaseClientSideWebPart<IReg
       proveedoresList: "Proveedores",
       proveedoresDisplayField: "Title",
       proveedoresUserField: "Usuarios",
-      placaFormat: this.properties.placaFormat || "",
+      // La placa peruana esperada por defecto es ABC-123; puede sobrescribirse
+      // desde el panel si una operacion necesita otro formato.
+      placaFormat: this.properties.placaFormat || "3-3",
 
       Proveedor: this.properties.Proveedor ?? false,
       Distribuidor: false,
@@ -98,6 +100,7 @@ export default class RegistroVehicularWebPart extends BaseClientSideWebPart<IReg
 
   protected onInit(): Promise<void> {
     initSP(this.context);
+    this.properties.placaFormat = this.properties.placaFormat || "3-3";
     return Promise.resolve();
   }
 
@@ -352,7 +355,7 @@ export default class RegistroVehicularWebPart extends BaseClientSideWebPart<IReg
                   label: "Formato de placa",
                   placeholder: "[3]-[3]",
                   description:
-                    "Ejemplo: [3]-[3], [4]-[3]. El guion es opcional al cargar, pero se valida la cantidad maxima de caracteres.",
+                    "Usa bloques entre corchetes y separadores. Ejemplos: [3]-[3], [4]-[3], [2]/[4] o [2]-[2]-[2].",
                 }),
               ],
             },

@@ -66,6 +66,16 @@ export const Documentacion: React.FC<Props> = ({
     if (typeof v === "string") {
       const trimmed = v.trim();
       if (!trimmed) return null;
+      const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed);
+      if (dateOnly) {
+        const local = new Date(
+          Number(dateOnly[1]),
+          Number(dateOnly[2]) - 1,
+          Number(dateOnly[3])
+        );
+        local.setHours(0, 0, 0, 0);
+        return isNaN(local.getTime()) ? null : local;
+      }
       const d = new Date(trimmed);
       return isNaN(d.getTime()) ? null : d;
     }

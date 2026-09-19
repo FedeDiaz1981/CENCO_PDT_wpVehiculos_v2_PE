@@ -29,6 +29,7 @@ import {
 type VehiculoExt = {
   Empresa?: string;
   EmpresaId?: number;
+  UsuariosProveedorIds?: number[];
   Activo?: boolean;
 
   Placa?: string;
@@ -151,6 +152,22 @@ const DatosVehiculo: React.FC<{
     void run();
   }, [proveedoresList]);
 
+  React.useEffect(() => {
+    if (!safeVehiculo.EmpresaId || proveedores.length === 0) return;
+
+    const seleccionado = proveedores.find((p) => p.id === safeVehiculo.EmpresaId);
+    if (!seleccionado) return;
+
+    const actuales = safeVehiculo.UsuariosProveedorIds || [];
+    const nuevos = seleccionado.usuarioIds || [];
+    if (actuales.join(",") === nuevos.join(",")) return;
+
+    setVehiculo((s) => ({
+      ...(s || {}),
+      UsuariosProveedorIds: [...nuevos],
+    }));
+  }, [proveedores, safeVehiculo.EmpresaId, safeVehiculo.UsuariosProveedorIds, setVehiculo]);
+
   const placaPattern = React.useMemo(
     () => parsePlacaPattern(placaFormat),
     [placaFormat]
@@ -181,20 +198,20 @@ const DatosVehiculo: React.FC<{
       Modelo: "Modelo",
       Placa: "Placa",
       SOAT: "SOAT",
-      "C?digo de unidad": "CodigoInterno",
+      "Código de unidad": "CodigoInterno",
       Capacidad: "Capacidad",
       "Capacidad otros": "Otros",
       "Medida interna": "MedidasInternas",
       "Medida externa": "MedidasExternas",
-      "Altura de piso a furg?n": "AlturaPiso",
-      "Altura de piso al furg?n": "AlturaPiso",
-      "Peso ?til": "PesoCargaUtil",
+      "Altura de piso a furgón": "AlturaPiso",
+      "Altura de piso al furgón": "AlturaPiso",
+      "Peso útil": "PesoCargaUtil",
       "Peso bruto": "PesoNeto",
       "Largo de rampa": "LargoRampa",
       "Ancho de rampa": "AnchoRampa",
       // si alguna vez lo usan:
       Bonificacion: "Bonificacion",
-      "N? de resoluci?n": "NroResolucion",
+      "N° de resolución": "NroResolucion",
     };
 
     for (const raw of missingRequired || []) {
@@ -264,7 +281,7 @@ const DatosVehiculo: React.FC<{
 
   const isInvalid = React.useCallback(
     (key: string, value: unknown, lockedBy?: string | string[]): boolean => {
-      // clave: NO mostrar nada si no se intent? guardar
+      // No mostrar validaciones antes del primer intento de guardar.
       if (!showValidation) return false;
 
       // si el padre nos pasa faltantes, usamos eso (es lo que quer?s)
@@ -385,12 +402,13 @@ const DatosVehiculo: React.FC<{
       ...(s || {}),
       EmpresaId: proveedorId,
       Empresa: proveedor ? proveedor.title : "",
+      UsuariosProveedorIds: proveedor ? [...proveedor.usuarioIds] : [],
     }));
   };
 
   const alturaHelpUrl =
     (alturaPisoHelpImageUrl || "").trim() ||
-    "https://cnco.sharepoint.com/sites/DucumentosTrasportesPE/SiteAssets/Altura.png";
+    "https://cnco.sharepoint.com/sites/DocumentosTrasportesPE2/SiteAssets/Altura.png";
 
   // ===========
   // flags de invalid por campo
@@ -479,7 +497,7 @@ const DatosVehiculo: React.FC<{
       {/* Temperatura / Tipo temperatura / Tipo de unidad */}
       <div className={classes.grid3}>
         <div className={classes.fieldCell}>
-          <div className={classes.fieldLabel}>Temperatura</div>
+          <div className={classes.fieldLabel}>Temperatura *</div>
           <div style={invalidBoxStyle(invalidTemp)}>
             <Dropdown
               placeholder="Seleccione..."
@@ -507,7 +525,7 @@ const DatosVehiculo: React.FC<{
         )}
 
         <div className={classes.fieldCell}>
-          <div className={classes.fieldLabel}>Tipo de unidad</div>
+          <div className={classes.fieldLabel}>Tipo de unidad *</div>
           <div style={invalidBoxStyle(invalidTipoUnidad)}>
             <Dropdown
               placeholder="Seleccione..."
@@ -524,8 +542,8 @@ const DatosVehiculo: React.FC<{
         <div className={classes.grid3}>
           <TextField
             label={
-              isRequired("CodigoInterno")
-                ? "Código de unidad"
+              showCodigoVehicular
+                ? "Código de unidad *"
                 : "Código de unidad"
             }
             value={normalizeCodigoVehicular(safeVehiculo.Codigo || "")}
@@ -545,7 +563,7 @@ const DatosVehiculo: React.FC<{
         </div>
       )}
 
-      {/* Placa / SOAT / C?digo */}
+      {/* Placa / SOAT / Código */}
       <div className={classes.grid3}>
         <TextField
           label="Placa *"
@@ -553,11 +571,15 @@ const DatosVehiculo: React.FC<{
           onChange={setPlaca}
           disabled={disabled || isLocked("Placa") || isLocked("Title")}
           maxLength={
-            placaPattern ? placaPattern.left + placaPattern.right + 1 : undefined
+            placaPattern
+              ? placaPattern.groups.reduce((total, size) => total + size, 0) +
+                placaPattern.separators.join("").length
+              : undefined
           }
+          placeholder={placaPattern?.mask}
           description={
             placaPattern
-              ? `Formato esperado: ${placaPattern.left} + ${placaPattern.right} caracteres. El guion es opcional.`
+              ? `Formato esperado: ${placaPattern.mask.replace(/_/g, "#")}`
               : undefined
           }
           styles={
@@ -568,7 +590,7 @@ const DatosVehiculo: React.FC<{
         />
 
         <TextField
-          label="SOAT"
+          label="SOAT *"
           value={safeVehiculo.SOAT || ""}
           onChange={setText("SOAT")}
           disabled={disabled}
@@ -614,7 +636,7 @@ const DatosVehiculo: React.FC<{
       {/* Capacidad */}
       <div className={classes.grid3}>
         <div className={classes.fieldCell}>
-          <div className={classes.fieldLabel}>Capacidad</div>
+          <div className={classes.fieldLabel}>Capacidad *</div>
           <div style={invalidBoxStyle(invalidCapacidad)}>
             <Dropdown
               placeholder="Seleccione..."
@@ -726,7 +748,7 @@ const DatosVehiculo: React.FC<{
         <div />
       </div>
 
-      {/* Rieles log?sticos / Propiedad */}
+      {/* Rieles logísticos / Propiedad */}
       <div className={classes.grid3}>
         <div className={classes.fieldCell}>
           <div className={classes.fieldLabel}>¿Cuenta con rieles logísticos?</div>
@@ -823,7 +845,7 @@ const DatosVehiculo: React.FC<{
       {/* Pesos */}
       <div className={classes.grid3}>
         <TextField
-          label="Peso carga útil"
+          label="Peso carga útil *"
           value={safeVehiculo.PesoCargaUtil || ""}
           type={isNumber("pesocargautil") ? "number" : "text"}
           onChange={setText("PesoCargaUtil")}
@@ -836,7 +858,7 @@ const DatosVehiculo: React.FC<{
         />
 
         <TextField
-          label="Peso bruto"
+          label="Peso bruto *"
           value={safeVehiculo.PesoNeto || ""}
           type="text"
           onChange={setText("PesoNeto")}

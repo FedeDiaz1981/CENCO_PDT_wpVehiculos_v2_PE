@@ -47,7 +47,7 @@ const DocumentacionLite: React.FC<{
   showResBonificacion?: boolean;
   disabled?: boolean;
 
-  // NUEVO: para marcar reciÃ©n despuÃ©s de intentar guardar
+  // Marca los campos despues del primer intento de guardar.
   showValidation?: boolean;
 }> = ({
   doc,
@@ -77,12 +77,12 @@ const DocumentacionLite: React.FC<{
       if (f) {
         const name = f.name || "";
         window.alert(
-          `Documento "${label}" se adjuntÃ³ correctamente${
+          `Documento "${label}" se adjuntó correctamente${
             name ? ` (${name})` : ""
           }.`
         );
       } else {
-        window.alert(`No se adjuntÃ³ ningÃºn archivo para "${label}".`);
+        window.alert(`No se adjuntó ningún archivo para "${label}".`);
       }
     };
 
@@ -134,7 +134,7 @@ const DocumentacionLite: React.FC<{
     >
       <div className={classes.cardHeader}>
         <Icon iconName="Document" />
-        <div className={classes.cardTitle}>2 - DocumentaciÃ³n</div>
+        <div className={classes.cardTitle}>2 - Documentación</div>
       </div>
       <Separator />
 
@@ -155,7 +155,7 @@ const DocumentacionLite: React.FC<{
 
         {showResBonificacion && (
           <DocCard
-            title="ResoluciÃ³n de bonificaciÃ³n"
+            title="Resolución de bonificación"
             file={fileOut(doc.resBonificacionFile)}
             existingFileName={getExistingName(doc.resBonificacionFile)}
           fileUrl={getExistingUrl(doc.resBonificacionFile)}
@@ -164,7 +164,7 @@ const DocumentacionLite: React.FC<{
                 ? undefined
                 : handleFileChange(
                     "resBonificacionFile",
-                    "ResoluciÃ³n de bonificaciÃ³n"
+                    "Resolución de bonificación"
                   )
             }
             invalid={invalidBonificacion}
@@ -174,8 +174,8 @@ const DocumentacionLite: React.FC<{
 
         {showFumigacion && (
           <DocCard
-            title="Certificado de fumigaciÃ³n"
-            dateLabel="Fecha de emisiÃ³n"
+            title="Certificado de fumigación"
+            dateLabel="Fecha de emisión"
             dateValue={doc.fumigacionDate || ""}
             onDateChange={
               disabled
@@ -191,7 +191,7 @@ const DocumentacionLite: React.FC<{
                 ? undefined
                 : handleFileChange(
                     "fumigacionFile",
-                    "Certificado de fumigaciÃ³n"
+                    "Certificado de fumigación"
                   )
             }
             invalid={invalidFumigacion}
@@ -200,7 +200,7 @@ const DocumentacionLite: React.FC<{
         )}
 
         <DocCard
-          title="RevisiÃ³n tÃ©cnica"
+          title="Revisión técnica"
           dateLabel="Fecha de vencimiento"
           dateValue={doc.revTecDate || ""}
           onDateChange={
@@ -209,7 +209,7 @@ const DocumentacionLite: React.FC<{
               : (v?: string) => setField("revTecDate")(v || "")
           }
           dateMin={todayStr}
-          textLabel="AÃ±o de fabricaciÃ³n"
+          textLabel="Año de fabricación"
           textValue={doc.revTecText || ""}
           onTextChange={
             disabled ? undefined : (v?: string) => setField("revTecText")(v || "")
@@ -222,7 +222,7 @@ const DocumentacionLite: React.FC<{
           onFileChange={
             disabled
               ? undefined
-              : handleFileChange("revTecFile", "RevisiÃ³n tÃ©cnica")
+              : handleFileChange("revTecFile", "Revisión técnica")
           }
           invalid={invalidRevisionTecnica}
           showValidation={showValidation}
@@ -231,7 +231,7 @@ const DocumentacionLite: React.FC<{
         {showSanipes && (
           <DocCard
             title="SANIPES"
-            dateLabel="Fecha de resoluciÃ³n"
+            dateLabel="Fecha de resolución"
             dateValue={doc.SanipesDate || ""}
             onDateChange={
               disabled
@@ -239,7 +239,7 @@ const DocumentacionLite: React.FC<{
                 : (v?: string) => setField("SanipesDate")(v || "")
             }
             dateMax={todayStr}
-            textLabel="NÂ° de expediente"
+            textLabel="N° de expediente"
             textValue={doc.SanipesText || ""}
             onTextChange={
               disabled
@@ -260,7 +260,7 @@ const DocumentacionLite: React.FC<{
         {showTermoking && (
           <DocCard
             title="Certificado de mantenimiento de termoking"
-            dateLabel="Fecha de emisiÃ³n"
+            dateLabel="Fecha de emisión"
             dateValue={doc.termokingDate || ""}
             onDateChange={
               disabled
@@ -286,8 +286,8 @@ const DocumentacionLite: React.FC<{
 
         {showLimpieza && (
           <DocCard
-            title="Limpieza y desinfecciÃ³n"
-            dateLabel="Fecha de emisiÃ³n"
+            title="Limpieza y desinfección"
+            dateLabel="Fecha de emisión"
             dateValue={doc.limpiezaDate || ""}
             onDateChange={
               disabled
@@ -301,7 +301,7 @@ const DocumentacionLite: React.FC<{
             onFileChange={
               disabled
                 ? undefined
-                : handleFileChange("limpiezaFile", "Limpieza y desinfecciÃ³n")
+                : handleFileChange("limpiezaFile", "Limpieza y desinfección")
             }
             invalid={invalidLimpieza}
             showValidation={showValidation}

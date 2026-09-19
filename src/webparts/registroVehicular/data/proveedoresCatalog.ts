@@ -6,7 +6,8 @@ export type ProveedorInfo = {
   id: number;         // ID en la lista Proveedores
   title: string;      // Title (razón social)
   ruc: string;        // RUC
-  usuarios: string[]; // columna Usuarios (personas autorizadas)
+  usuarios: string[]; // nombres de las personas autorizadas
+  usuarioIds: number[]; // IDs de la columna persona Usuarios
 };
 
 export async function getProveedoresCatalogFromList(
@@ -16,15 +17,24 @@ export async function getProveedoresCatalogFromList(
     .web.lists
     .getByTitle(listName)
     .items
-    .select("Id", "Title", "RUC", "Usuarios/Title")
+    .select("Id", "Title", "RUC", "Usuarios/Id", "Usuarios/Title")
     .expand("Usuarios")();
 
-  return items.map(i => ({
+  return items.map(i => {
+    const usuarios = Array.isArray(i.Usuarios)
+      ? i.Usuarios
+      : i.Usuarios
+      ? [i.Usuarios]
+      : [];
+
+    return {
     id: i.Id,
     title: i.Title,
     ruc: i.RUC || "",
-    usuarios: Array.isArray(i.Usuarios)
-      ? i.Usuarios.map((u: any) => String(u.Title || ""))
-      : []
-  }));
+    usuarios: usuarios.map((u: any) => String(u.Title || "")),
+    usuarioIds: usuarios
+      .map((u: any) => Number(u.Id))
+      .filter((id: number) => Number.isFinite(id) && id > 0),
+    };
+  });
 }
